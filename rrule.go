@@ -382,7 +382,7 @@ func (info *iterInfo) rebuild(year int, month time.Month) {
 	}
 	if len(info.rrule.byeaster) != 0 {
 		info.eastermask = make([]int, info.yearlen+7)
-		eyday := int(easter(year).Sub(info.firstyday).Hours() / 24)
+		eyday := int(easter(year, info.rrule.dtstart.Location()).Sub(info.firstyday).Hours() / 24)
 		for _, offset := range info.rrule.byeaster {
 			info.eastermask[eyday+offset] = 1
 		}

@@ -119,7 +119,7 @@ func timeSliceIterator(s []time.Time) func() (time.Time, bool) {
 	}
 }
 
-func easter(year int) time.Time {
+func easter(year int, location *time.Location) time.Time {
 	g := year % 19
 	c := year / 100
 	h := (c - c/4 - (8*c+13)/25 + 19*g + 15) % 30
@@ -128,7 +128,7 @@ func easter(year int) time.Time {
 	p := i - j
 	d := 1 + (p+27+(p+6)/40)%31
 	m := 3 + (p+26)/30
-	return time.Date(year, time.Month(m), d, 0, 0, 0, 0, time.Local)
+	return time.Date(year, time.Month(m), d, 0, 0, 0, 0, location)
 }
 
 func all(next Next) []time.Time {

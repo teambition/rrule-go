@@ -85,7 +85,7 @@ func TestRRuleIterate(t *testing.T) {
 	r, _ = NewRRule(ROption{
 		Freq:     YEARLY,
 		Dtstart:  time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC),
-		Byeaster: []int{1},
+		Byeaster: []int{0},
 		Until:    time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 	})
 	if value, want := r.All()[0], time.Date(1998, 4, 12, 0, 0, 0, 0, time.UTC); value != want {

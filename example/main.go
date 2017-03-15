@@ -23,8 +23,8 @@ func exampleRRule() {
 	fmt.Println(r.Between(
 		time.Date(1997, 9, 6, 0, 0, 0, 0, time.Local),
 		time.Date(1997, 9, 8, 0, 0, 0, 0, time.Local), true))
-	// [1997-09-06 09:00:00 +0800
-	// CST 1997-09-07 09:00:00 +0800 CST]
+	// [1997-09-06 09:00:00 +0800 CST
+	// 1997-09-07 09:00:00 +0800 CST]
 
 	fmt.Println(r)
 	// FREQ=DAILY;DTSTART=19970902T010000Z;COUNT=10

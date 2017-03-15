@@ -99,6 +99,7 @@ type ROption struct {
 // RRule offers a small, complete, and very fast, implementation of the recurrence rules
 // documented in the iCalendar RFC, including support for caching of results.
 type RRule struct {
+	origOptions             ROption
 	freq                    Frequency
 	dtstart                 time.Time
 	interval                int
@@ -121,8 +122,9 @@ type RRule struct {
 }
 
 // NewRRule construct a new RRule instance
-func NewRRule(arg *ROption) (*RRule, error) {
+func NewRRule(arg ROption) (*RRule, error) {
 	r := RRule{}
+	r.origOptions = arg
 	if arg.Dtstart.IsZero() {
 		arg.Dtstart = time.Now().Truncate(time.Second)
 	}
@@ -229,11 +231,14 @@ type iterInfo struct {
 	eastermask  []int
 }
 
-func (info *iterInfo) rebuild(year int, month time.Month) { // Every mask is 7 days longer to handle cross-year weekly periods.
+func (info *iterInfo) rebuild(year int, month time.Month) {
+	// Every mask is 7 days longer to handle cross-year weekly periods.
 	if year != info.lastyear {
 		info.yearlen = 365 + isLeap(year)
 		info.nextyearlen = 365 + isLeap(year+1)
-		info.firstyday = time.Date(year, time.January, 1, 0, 0, 0, 0, time.Local)
+		info.firstyday = time.Date(
+			year, time.January, 1, 0, 0, 0, 0,
+			info.rrule.dtstart.Location())
 		info.yearweekday = toPyWeekday(info.firstyday.Weekday())
 		info.wdaymask = WDAYMASK[info.yearweekday:]
 		if info.yearlen == 365 {
@@ -316,7 +321,9 @@ func (info *iterInfo) rebuild(year int, month time.Month) { // Every mask is 7 d
 				// this year.
 				var lnumweeks int
 				if !contains(info.rrule.byweekno, -1) {
-					lyearweekday := toPyWeekday(time.Date(year-1, 1, 1, 0, 0, 0, 0, time.Local).Weekday())
+					lyearweekday := toPyWeekday(time.Date(
+						year-1, 1, 1, 0, 0, 0, 0,
+						info.rrule.dtstart.Location()).Weekday())
 					lno1wkst := pymod(7-lyearweekday+info.rrule.wkst, 7)
 					lyearlen := 365 + isLeap(year-1)
 					if lno1wkst >= 4 {
@@ -384,99 +391,70 @@ func (info *iterInfo) rebuild(year int, month time.Month) { // Every mask is 7 d
 	info.lastmonth = month
 }
 
-func (info *iterInfo) ydayset(year int, month time.Month, day int) ([]*int, int, int) {
-	set := make([]*int, info.yearlen)
-	for i := 0; i < info.yearlen; i++ {
-		temp := i
-		set[i] = &temp
-	}
-	return set, 0, info.yearlen
-}
-
-func (info *iterInfo) mdayset(year int, month time.Month, day int) ([]*int, int, int) {
-	set := make([]*int, info.yearlen)
-	start, end := info.mrange[month-1], info.mrange[month]
-	for i := start; i < end; i++ {
-		temp := i
-		set[i] = &temp
-	}
-	return set, start, end
-}
-
-func (info *iterInfo) wdayset(year int, month time.Month, day int) ([]*int, int, int) {
-	// We need to handle cross-year weeks here.
-	set := make([]*int, info.yearlen+7)
-	i := int(time.Date(year, month, day, 0, 0, 0, 0, time.Local).Sub(info.firstyday).Hours() / 24)
-	start := i
-	for j := 0; j < 7; j++ {
-		temp := i
-		set[i] = &temp
-		i++
-		// if (not (0 <= i < self.yearlen) or
-		//     self.wdaymask[i] == self.rrule._wkst):
-		//  This will cross the year boundary, if necessary.
-		if info.wdaymask[i] == info.rrule.wkst {
-			break
+func (info *iterInfo) getdayset(freq Frequency, year int, month time.Month, day int) ([]*int, int, int) {
+	switch freq {
+	case YEARLY:
+		set := make([]*int, info.yearlen)
+		for i := 0; i < info.yearlen; i++ {
+			temp := i
+			set[i] = &temp
 		}
+		return set, 0, info.yearlen
+	case MONTHLY:
+		set := make([]*int, info.yearlen)
+		start, end := info.mrange[month-1], info.mrange[month]
+		for i := start; i < end; i++ {
+			temp := i
+			set[i] = &temp
+		}
+		return set, start, end
+	case WEEKLY:
+		// We need to handle cross-year weeks here.
+		set := make([]*int, info.yearlen+7)
+		i := int(time.Date(
+			year, month, day, 0, 0, 0, 0,
+			info.rrule.dtstart.Location()).Sub(info.firstyday).Hours() / 24)
+		start := i
+		for j := 0; j < 7; j++ {
+			temp := i
+			set[i] = &temp
+			i++
+			// if (not (0 <= i < self.yearlen) or
+			//     self.wdaymask[i] == self.rrule._wkst):
+			//  This will cross the year boundary, if necessary.
+			if info.wdaymask[i] == info.rrule.wkst {
+				break
+			}
+		}
+		return set, start, i
 	}
-	return set, start, i
-}
-
-func (info *iterInfo) ddayset(year int, month time.Month, day int) ([]*int, int, int) {
+	// DAILY, HOURLY, MINUTELY, SECONDLY:
 	set := make([]*int, info.yearlen)
-	i := int(time.Date(year, month, day, 0, 0, 0, 0, time.Local).Sub(info.firstyday).Hours() / 24)
+	i := int(time.Date(
+		year, month, day, 0, 0, 0, 0,
+		info.rrule.dtstart.Location()).Sub(info.firstyday).Hours() / 24)
 	set[i] = &i
 	return set, i, i + 1
 }
 
-func (info *iterInfo) getdayset(freq Frequency, year int, month time.Month, day int) ([]*int, int, int) {
-	switch freq {
-	case YEARLY:
-		return info.ydayset(year, month, day)
-	case MONTHLY:
-		return info.mdayset(year, month, day)
-	case WEEKLY:
-		return info.wdayset(year, month, day)
-	case DAILY, HOURLY, MINUTELY, SECONDLY:
-		return info.ddayset(year, month, day)
-	}
-	return nil, 0, 0
-}
-
-func (info *iterInfo) htimeset(hour, minute, second int) []time.Time {
-	set := []time.Time{}
-	for _, minute := range info.rrule.byminute {
-		for _, second := range info.rrule.bysecond {
-			set = append(set, time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location()))
-		}
-	}
-	sort.Sort(timeSlice(set))
-	return set
-}
-
-func (info *iterInfo) mtimeset(hour, minute, second int) []time.Time {
-	set := []time.Time{}
-	for _, second := range info.rrule.bysecond {
-		set = append(set, time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location()))
-	}
-	sort.Sort(timeSlice(set))
-	return set
-}
-
-func (info *iterInfo) stimeset(hour, minute, second int) []time.Time {
-	return []time.Time{time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location())}
-}
-
-func (info *iterInfo) gettimeset(freq Frequency, hour, minute, second int) []time.Time {
+func (info *iterInfo) gettimeset(freq Frequency, hour, minute, second int) (result []time.Time) {
 	switch freq {
 	case HOURLY:
-		return info.htimeset(hour, minute, second)
+		for _, minute := range info.rrule.byminute {
+			for _, second := range info.rrule.bysecond {
+				result = append(result, time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location()))
+			}
+		}
+		sort.Sort(timeSlice(result))
 	case MINUTELY:
-		return info.mtimeset(hour, minute, second)
+		for _, second := range info.rrule.bysecond {
+			result = append(result, time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location()))
+		}
+		sort.Sort(timeSlice(result))
 	case SECONDLY:
-		return info.stimeset(hour, minute, second)
+		result = []time.Time{time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location())}
 	}
-	return nil
+	return
 }
 
 // rIterator is a iterator of RRule

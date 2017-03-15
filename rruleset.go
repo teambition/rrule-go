@@ -37,22 +37,6 @@ func (set *Set) ExDate(exdate time.Time) {
 	set.exdate = append(set.exdate, exdate)
 }
 
-func (set *Set) removeEx(timeMap map[time.Time]bool) {
-	if len(timeMap) == 0 {
-		return
-	}
-	times := keys(timeMap)
-	sort.Sort(timeSlice(times))
-	for _, r := range set.exrule {
-		for _, t := range r.Between(times[0], times[len(times)-1], true) {
-			delete(timeMap, t)
-		}
-	}
-	for _, t := range set.exdate {
-		delete(timeMap, t)
-	}
-}
-
 type genItem struct {
 	dt  time.Time
 	gen Next

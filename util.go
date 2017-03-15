@@ -119,14 +119,6 @@ func timeSliceIterator(s []time.Time) func() (time.Time, bool) {
 	}
 }
 
-func keys(m map[time.Time]bool) []time.Time {
-	result := make([]time.Time, 0, len(m))
-	for k := range m {
-		result = append(result, k)
-	}
-	return result
-}
-
 func easter(year int) time.Time {
 	g := year % 19
 	c := year / 100

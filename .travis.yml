@@ -1,0 +1,10 @@
+sudo: false
+language: go
+go:
+  - 1.8
+before_install:
+  - go get -t -v ./...
+  - go get github.com/mattn/goveralls
+script:
+  - go test -coverprofile=rrule.coverprofile
+  - goveralls -coverprofile=rrule.coverprofile -service=travis-ci

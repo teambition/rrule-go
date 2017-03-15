@@ -411,7 +411,6 @@ func (info *iterInfo) getdayset(freq Frequency, year int, month time.Month, day 
 	case WEEKLY:
 		// We need to handle cross-year weeks here.
 		set := make([]*int, info.yearlen+7)
-		// TODO
 		i := int(time.Date(
 			year, month, day, 0, 0, 0, 0,
 			info.rrule.dtstart.Location()).Sub(info.firstyday).Hours() / 24)
@@ -428,39 +427,34 @@ func (info *iterInfo) getdayset(freq Frequency, year int, month time.Month, day 
 			}
 		}
 		return set, start, i
-	case DAILY, HOURLY, MINUTELY, SECONDLY:
-		set := make([]*int, info.yearlen)
-		i := int(time.Date(
-			year, month, day, 0, 0, 0, 0,
-			info.rrule.dtstart.Location()).Sub(info.firstyday).Hours() / 24)
-		set[i] = &i
-		return set, i, i + 1
 	}
-	return nil, 0, 0
+	// DAILY, HOURLY, MINUTELY, SECONDLY:
+	set := make([]*int, info.yearlen)
+	i := int(time.Date(
+		year, month, day, 0, 0, 0, 0,
+		info.rrule.dtstart.Location()).Sub(info.firstyday).Hours() / 24)
+	set[i] = &i
+	return set, i, i + 1
 }
 
-func (info *iterInfo) gettimeset(freq Frequency, hour, minute, second int) []time.Time {
+func (info *iterInfo) gettimeset(freq Frequency, hour, minute, second int) (result []time.Time) {
 	switch freq {
 	case HOURLY:
-		set := []time.Time{}
 		for _, minute := range info.rrule.byminute {
 			for _, second := range info.rrule.bysecond {
-				set = append(set, time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location()))
+				result = append(result, time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location()))
 			}
 		}
-		sort.Sort(timeSlice(set))
-		return set
+		sort.Sort(timeSlice(result))
 	case MINUTELY:
-		set := []time.Time{}
 		for _, second := range info.rrule.bysecond {
-			set = append(set, time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location()))
+			result = append(result, time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location()))
 		}
-		sort.Sort(timeSlice(set))
-		return set
+		sort.Sort(timeSlice(result))
 	case SECONDLY:
-		return []time.Time{time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location())}
+		result = []time.Time{time.Date(1, 1, 1, hour, minute, second, 0, info.rrule.dtstart.Location())}
 	}
-	return nil
+	return
 }
 
 // rIterator is a iterator of RRule

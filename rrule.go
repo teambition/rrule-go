@@ -126,8 +126,9 @@ func NewRRule(arg ROption) (*RRule, error) {
 	r := RRule{}
 	r.origOptions = arg
 	if arg.Dtstart.IsZero() {
-		arg.Dtstart = time.Now().Truncate(time.Second)
+		arg.Dtstart = time.Now()
 	}
+	arg.Dtstart = arg.Dtstart.Truncate(time.Second)
 	r.dtstart = arg.Dtstart
 	r.freq = arg.Freq
 	if arg.Interval == 0 {

@@ -5,223 +5,3677 @@ import (
 	"time"
 )
 
-func TestNewRRule(t *testing.T) {
-	r, e := NewRRule(ROption{Freq: MONTHLY})
+func timesEqual(value, want []time.Time) bool {
+	if len(value) != len(want) {
+		return false
+	}
+	for index := range value {
+		if value[index] != want[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func TestNoDtstart(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY})
 	if seconds := time.Now().Sub(r.dtstart).Seconds(); seconds > 10 {
-		t.Errorf(`time.Now().Sub(r.dtstrt).Seconds() = %f, want < 10`, seconds)
-	}
-
-	r, e = NewRRule(ROption{Bysetpos: []int{367}})
-	if e == nil {
-		t.Errorf("_, e = NewRRule(ROption{Bysetpos:[]int{367}}); e = nil, want error")
-	}
-
-	r, _ = NewRRule(ROption{
-		Freq:    WEEKLY,
-		Dtstart: time.Date(2017, 3, 14, 9, 0, 0, 0, time.UTC),
-	})
-	if len(r.byweekday) != 1 || r.byweekday[0] != TU.weekday {
-		t.Errorf("r.byweekday = %v, want [1]", r.byweekday)
-	}
-
-	r, _ = NewRRule(ROption{
-		Bymonthday: []int{-1},
-		Byweekday:  []Weekday{MO.Nth(1)},
-	})
-	if len(r.bynmonthday) != 1 || r.bynmonthday[0] != -1 {
-		t.Errorf("r.bynmonthday = %v, want [-1]", r.bynmonthday)
-	}
-	if len(r.bynweekday) != 1 || r.bynweekday[0] != MO.Nth(1) {
-		t.Errorf("r.bynweekday = %v, want +1MO", r.bynweekday)
+		t.Errorf(`time.Now().Sub(r.dtstrt).Seconds() = %f, want <= 10`, seconds)
 	}
 }
 
-func TestRRule(t *testing.T) {
-	r, _ := NewRRule(ROption{
-		Freq:    YEARLY,
-		Count:   4,
+func TestBadBySetPos(t *testing.T) {
+	_, e := NewRRule(ROption{Freq: MONTHLY, Count: 1, Bysetpos: []int{0},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	if e == nil {
+		t.Error("get nil, want error")
+	}
+}
+
+func TestBadBySetPosMany(t *testing.T) {
+	_, e := NewRRule(ROption{Freq: MONTHLY, Count: 1, Bysetpos: []int{-1, 0, 1},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	if e == nil {
+		t.Error("get nil, want error")
+	}
+}
+
+func TestByNegativeMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:      3,
+		Bymonthday: []int{-1},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 30, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 31, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 11, 30, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyMaxYear(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY, Interval: 15,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
 	})
-	instances := r.All()
-	if len := len(instances); len != 4 {
-		t.Errorf("len(r.All()) = %d, want 4", len)
-	}
-	for i, year := range []int{1997, 1998, 1999, 2000} {
-		want := time.Date(year, 9, 2, 9, 0, 0, 0, time.UTC)
-		if instances[i] != want {
-			t.Errorf("r.All()[i] = %v, want %v", instances[i], want)
-		}
-	}
-	from, to := time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC), time.Date(2000, 9, 2, 9, 0, 0, 0, time.UTC)
-	if instances := r.Between(from, to, true); len(instances) != 4 {
-		t.Errorf("len(r.Between(%v, %v, true)) = %d, want 4", from, to, len(instances))
-	}
-	if instances := r.Between(from, to, false); len(instances) != 2 {
-		t.Errorf("len(r.Between(%v, %v, false)) = %d, want 2", from, to, len(instances))
-	}
-	if instance := r.Before(from, true); instance != from {
-		t.Errorf("r.Before(%v, true) = %v, want %v", from, instance, from)
-	}
-	if instance := r.After(to, true); instance != to {
-		t.Errorf("r.After(%v, true) = %v, want %v", to, instance, to)
-	}
-	if instance := r.After(to, false); !instance.IsZero() {
-		t.Errorf("r.After(%v, false) = %v, want %v", to, instance, time.Time{})
+	value := r.All()[1]
+	want := time.Date(1998, 12, 2, 9, 0, 0, 0, time.UTC)
+	if value != want {
+		t.Errorf("get %v, want %v", value, want)
 	}
 }
 
-func TestRRuleIterate(t *testing.T) {
-	r, _ := NewRRule(ROption{
-		Freq:      YEARLY,
-		Dtstart:   time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC),
-		Byweekday: []Weekday{FR.Nth(1), SA.Nth(-1)},
-		Byweekno:  []int{1, 2, -100},
-		Bymonth:   []int{1},
+func TestWeeklyMaxYear(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY, Bymonthday: []int{32},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
 	})
-	if value, want := r.All()[0], time.Date(1998, 1, 2, 0, 0, 0, 0, time.UTC); value != want {
-		t.Errorf("r.All()[0] = %v, want %v", value, want)
-	}
-
-	r, _ = NewRRule(ROption{
-		Freq:     YEARLY,
-		Dtstart:  time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC),
-		Byeaster: []int{0},
-		Until:    time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
-	})
-	if value, want := r.All()[0], time.Date(1998, 4, 12, 0, 0, 0, 0, time.UTC); value != want {
-		t.Errorf("r.All()[0] = %v, want %v", value, want)
-	}
-
-	r, _ = NewRRule(ROption{
-		Freq:      YEARLY,
-		Dtstart:   time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC),
-		Byweekno:  []int{-1},
-		Byweekday: []Weekday{MO.Nth(-1)},
-		Count:     3,
-	})
-	if value, want := r.All()[0], time.Date(1998, 12, 28, 0, 0, 0, 0, time.UTC); value != want {
-		t.Errorf("r.All()[0] = %v, want %v", value, want)
-	}
-
-	r, _ = NewRRule(ROption{
-		Freq:      MONTHLY,
-		Interval:  15,
-		Dtstart:   time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC),
-		Byweekday: []Weekday{MO.Nth(1)},
-	})
-	if value, want := r.All()[1], time.Date(2000, 3, 6, 0, 0, 0, 0, time.UTC); value != want {
-		t.Errorf("r.All()[1] = %v, want %v", value, want)
-	}
-
-	r, _ = NewRRule(ROption{
-		Freq:    WEEKLY,
-		Dtstart: time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC),
-	})
-	if value, want := r.All()[1], time.Date(1997, 9, 9, 0, 0, 0, 0, time.UTC); value != want {
-		t.Errorf("r.All()[1] = %v, want %v", value, want)
-	}
-
-	r, _ = NewRRule(ROption{
-		Freq:    WEEKLY,
-		Wkst:    TU,
-		Dtstart: time.Date(1997, 9, 1, 0, 0, 0, 0, time.UTC),
-	})
-	if value, want := r.All()[1], time.Date(1997, 9, 8, 0, 0, 0, 0, time.UTC); value != want {
-		t.Errorf("r.All()[1] = %v, want %v", value, want)
-	}
-
-	r, _ = NewRRule(ROption{
-		Freq:       HOURLY,
-		Dtstart:    time.Date(1997, 9, 1, 23, 0, 0, 0, time.UTC),
-		Until:      time.Date(1997, 9, 3, 11, 0, 0, 0, time.UTC),
-		Bysetpos:   []int{1, -1, 61},
-		Bymonthday: []int{2, 3},
-		Byhour:     []int{0, 2},
-		Byminute:   []int{0, 1, 2},
-	})
-	if value, want := r.All()[3], time.Date(1997, 9, 2, 2, 2, 0, 0, time.UTC); value != want {
-		t.Errorf("r.All()[3] = %v, want %v", value, want)
-	}
-
-	r, _ = NewRRule(ROption{
-		Freq:       MINUTELY,
-		Dtstart:    time.Date(1997, 9, 2, 23, 0, 0, 0, time.UTC),
-		Count:      4,
-		Bymonthday: []int{2, 4},
-		Byminute:   []int{0},
-		Bysecond:   []int{0},
-	})
-	if value, want := r.All()[3], time.Date(1997, 9, 4, 2, 0, 0, 0, time.UTC); value != want {
-		t.Errorf("r.All()[3] = %v, want %v", value, want)
-	}
-
-	r, _ = NewRRule(ROption{
-		Freq:       SECONDLY,
-		Dtstart:    time.Date(1997, 12, 31, 23, 59, 59, 0, time.UTC),
-		Count:      4,
-		Bysetpos:   []int{1, -1},
-		Bymonthday: []int{31, 2},
-	})
-	if value, want := r.All()[3], time.Date(1998, 1, 2, 0, 0, 2, 0, time.UTC); value != want {
-		t.Errorf("r.All()[3] = %v, want %v", value, want)
+	value := r.All()
+	want := []time.Time{}
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
 	}
 }
 
-func TestRRuleSet(t *testing.T) {
-	// Daily, for 7 days, jumping Saturday and Sunday occurrences.
-	set := Set{}
-	r, _ := NewRRule(ROption{
-		Freq:    DAILY,
-		Count:   7,
+func TestHourlyInvalidAndRepeatedBysetpos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY, Bysetpos: []int{1, -1, 2},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		Until:   time.Date(1997, 9, 2, 11, 0, 0, 0, time.UTC)})
+	value := r.All()
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 10, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 11, 0, 0, 0, time.UTC)}
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestNoAfter(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   5,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
-	r, _ = NewRRule(ROption{
-		Freq:      YEARLY,
-		Byweekday: []Weekday{SA, SU},
+	want := time.Time{}
+	value := r.After(time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC), false)
+	if value != want {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+// Test cases from Python Dateutil
+
+func TestYearly(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 9, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyInterval(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Interval: 2,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(2001, 9, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyIntervalLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Interval: 100,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(2097, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(2197, 9, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMonth(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:   3,
+		Bymonth: []int{1, 3},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMonthAndMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{5, 7},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 7, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 5, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Byweekday: []Weekday{TU, TH},
 		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.ExRule(r)
-	set.RDate(time.Date(1997, 9, 7, 9, 0, 0, 0, time.UTC))
-	set.ExDate(time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC))
-	set.ExDate(time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC))
-	// 2,4,5,8
-	if value, want := set.All()[2], time.Date(1997, 9, 8, 9, 0, 0, 0, time.UTC); value != want {
-		t.Errorf("set.All()[4] = %v, want %v", value, want)
-	}
-	from, to := time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC), time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC)
-	if len := len(set.Between(from, to, true)); len != 2 {
-		t.Errorf("len(set.Between(%v, %v, true)) = %d, want 2", from, to, len)
-	}
-	if instance := set.Before(from, true); instance != from {
-		t.Errorf("set.Before(%v, true) = %v, want %v", from, instance, from)
-	}
-	if instance := set.After(to, true); instance != to {
-		t.Errorf("set.After(%v, true) = %v, want %v", to, instance, to)
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
 	}
 }
 
-func TestStr(t *testing.T) {
-	str := "FREQ=WEEKLY;DTSTART=20120201T093000Z;INTERVAL=5;WKST=TU;COUNT=2;UNTIL=20130130T230000Z;BYSETPOS=2;BYMONTH=3;BYYEARDAY=95;BYWEEKNO=1;BYDAY=MO,+2FR;BYHOUR=9;BYMINUTE=30;BYSECOND=0;BYEASTER=-1"
-	r, _ := StrToRRule(str)
-	if s := r.String(); s != str {
-		t.Errorf("StrToRRule(%q).String() = %q, want %q", str, s, str)
+func TestYearlyByNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 25, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 31, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
 	}
 }
 
-func TestInvalidString(t *testing.T) {
-	cases := []string{
-		"",
-		"FREQ",
-		"FREQ=HELLO",
-		"BYMONTH=",
-		"FREQ=WEEKLY;HELLO=WORLD",
-		"FREQ=WEEKLY;BYMONTHDAY=I",
-		"FREQ=WEEKLY;BYDAY=M",
-		"FREQ=WEEKLY;BYDAY=MQ",
-		"FREQ=WEEKLY;BYDAY=+MO",
+func TestYearlyByNWeekDayLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Byweekday: []Weekday{TU.Nth(3), TH.Nth(-3)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 20, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 17, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
 	}
-	for _, item := range cases {
-		if _, e := StrToRRule(item); e == nil {
-			t.Errorf("StrToRRule(%q) = nil, want error", item)
-		}
+}
+
+func TestYearlyByMonthAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 8, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMonthAndNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 29, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMonthAndNWeekDayLarge(t *testing.T) {
+	// This is interesting because the TH.Nth(-3) ends up before
+	// the TU.Nth(3).
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU.Nth(3), TH.Nth(-3)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 15, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 20, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 12, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 2, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMonthAndMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2001, 3, 1, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     4,
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     4,
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMonthAndYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMonthAndYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByWeekNo(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byweekno: []int{20},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 5, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 12, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 13, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByWeekNoAndWeekDay(t *testing.T) {
+	// That's a nice one. The first days of week number one
+	// may be in the last year.
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Byweekno:  []int{1},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 29, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByWeekNoAndWeekDayLarge(t *testing.T) {
+	// Another nice test. The last days of week number 52/53
+	// may be in the next year.
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Byweekno:  []int{52},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 27, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByWeekNoAndWeekDayLast(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Byweekno:  []int{-1},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByEaster(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byeaster: []int{0},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 12, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 23, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByEasterPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byeaster: []int{1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 13, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 24, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByEasterNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byeaster: []int{-1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 22, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByWeekNoAndWeekDay53(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:     3,
+		Byweekno:  []int{53},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(2004, 12, 27, 9, 0, 0, 0, time.UTC),
+		time.Date(2009, 12, 28, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByHour(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:   3,
+		Byhour:  []int{6, 18},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 0, 0, time.UTC),
+		time.Date(1998, 9, 2, 6, 0, 0, 0, time.UTC),
+		time.Date(1998, 9, 2, 18, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 0, 0, time.UTC),
+		time.Date(1998, 9, 2, 9, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyBySecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 18, 0, time.UTC),
+		time.Date(1998, 9, 2, 9, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByHourAndMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 0, 0, time.UTC),
+		time.Date(1998, 9, 2, 6, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByHourAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 0, 18, 0, time.UTC),
+		time.Date(1998, 9, 2, 6, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyByHourAndMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestYearlyBySetPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:      3,
+		Bymonthday: []int{15},
+		Byhour:     []int{6, 18},
+		Bysetpos:   []int{3, -3},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 11, 15, 18, 0, 0, 0, time.UTC),
+		time.Date(1998, 2, 15, 6, 0, 0, 0, time.UTC),
+		time.Date(1998, 11, 15, 18, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthly(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 11, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyInterval(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Interval: 2,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 11, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyIntervalLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Interval: 18,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 3, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 9, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonth(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:   3,
+		Bymonth: []int{1, 3},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonthAndMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{5, 7},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 7, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 5, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 25, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 7, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByNWeekDayLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Byweekday: []Weekday{TU.Nth(3), TH.Nth(-3)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 16, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 16, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonthAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 8, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonthAndNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 29, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonthAndNWeekDayLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU.Nth(3), TH.Nth(-3)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 15, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 20, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 12, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 2, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonthAndMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2001, 3, 1, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     4,
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     4,
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonthAndYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMonthAndYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByWeekNo(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Byweekno: []int{20},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 5, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 12, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 13, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByWeekNoAndWeekDay(t *testing.T) {
+	// That's a nice one. The first days of week number one
+	// may be in the last year.
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Byweekno:  []int{1},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 29, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByWeekNoAndWeekDayLarge(t *testing.T) {
+	// Another nice test. The last days of week number 52/53
+	// may be in the next year.
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Byweekno:  []int{52},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 27, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByWeekNoAndWeekDayLast(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Byweekno:  []int{-1},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByWeekNoAndWeekDay53(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     3,
+		Byweekno:  []int{53},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(2004, 12, 27, 9, 0, 0, 0, time.UTC),
+		time.Date(2009, 12, 28, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByEaster(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Byeaster: []int{0},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 12, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 23, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByEasterPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Byeaster: []int{1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 13, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 24, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByEasterNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Byeaster: []int{-1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 22, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByHour(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:   3,
+		Byhour:  []int{6, 18},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 2, 6, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 2, 18, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 0, 0, time.UTC),
+		time.Date(1997, 10, 2, 9, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyBySecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 18, 0, time.UTC),
+		time.Date(1997, 10, 2, 9, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByHourAndMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 0, 0, time.UTC),
+		time.Date(1997, 10, 2, 6, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByHourAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 0, 18, 0, time.UTC),
+		time.Date(1997, 10, 2, 6, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyByHourAndMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMonthlyBySetPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:      3,
+		Bymonthday: []int{13, 17},
+		Byhour:     []int{6, 18},
+		Bysetpos:   []int{3, -3},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 13, 18, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 17, 6, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 13, 18, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeekly(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 16, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyInterval(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Interval: 2,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 16, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 30, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyIntervalLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Interval: 20,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 20, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 6, 9, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMonth(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:   3,
+		Bymonth: []int{1, 3},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 13, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 20, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMonthAndMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{5, 7},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 7, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 5, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMonthAndWeekDay(t *testing.T) {
+	// This test is interesting, because it crosses the year
+	// boundary in a weekly period to find day '1' as a
+	// valid recurrence.
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 8, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMonthAndNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 8, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 2, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMonthAndMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2001, 3, 1, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     4,
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     4,
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMonthAndYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     4,
+		Bymonth:   []int{1, 7},
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMonthAndYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     4,
+		Bymonth:   []int{1, 7},
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByWeekNo(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Byweekno: []int{20},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 5, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 12, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 13, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByWeekNoAndWeekDay(t *testing.T) {
+	// That's a nice one. The first days of week number one
+	// may be in the last year.
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Byweekno:  []int{1},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 29, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByWeekNoAndWeekDayLarge(t *testing.T) {
+	// Another nice test. The last days of week number 52/53
+	// may be in the next year.
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Byweekno:  []int{52},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 27, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByWeekNoAndWeekDayLast(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Byweekno:  []int{-1},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByWeekNoAndWeekDay53(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Byweekno:  []int{53},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(2004, 12, 27, 9, 0, 0, 0, time.UTC),
+		time.Date(2009, 12, 28, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByEaster(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Byeaster: []int{0},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 12, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 23, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByEasterPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Byeaster: []int{1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 13, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 24, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByEasterNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Byeaster: []int{-1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 22, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByHour(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:   3,
+		Byhour:  []int{6, 18},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 6, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 18, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyBySecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByHourAndMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 6, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByHourAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 9, 6, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyByHourAndMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWeeklyBySetPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Byweekday: []Weekday{TU, TH},
+		Byhour:    []int{6, 18},
+		Bysetpos:  []int{3, -3},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 6, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 18, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDaily(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyInterval(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Interval: 2,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyIntervalLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Interval: 92,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 5, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMonth(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Bymonth: []int{1, 3},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMonthAndMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{5, 7},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 7, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 5, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     3,
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     3,
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMonthAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 8, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMonthAndNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 6, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 8, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 2, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMonthAndMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 3, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2001, 3, 1, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     4,
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     4,
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMonthAndYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     4,
+		Bymonth:   []int{1, 7},
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMonthAndYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     4,
+		Bymonth:   []int{1, 7},
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 7, 19, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 7, 19, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByWeekNo(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byweekno: []int{20},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 5, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 12, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 13, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByWeekNoAndWeekDay(t *testing.T) {
+	// That's a nice one. The first days of week number one
+	// may be in the last year.
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     3,
+		Byweekno:  []int{1},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 29, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 3, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByWeekNoAndWeekDayLarge(t *testing.T) {
+	// Another nice test. The last days of week number 52/53
+	// may be in the next year.
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     3,
+		Byweekno:  []int{52},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 27, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByWeekNoAndWeekDayLast(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     3,
+		Byweekno:  []int{-1},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 1, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 1, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByWeekNoAndWeekDay53(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:     3,
+		Byweekno:  []int{53},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 12, 28, 9, 0, 0, 0, time.UTC),
+		time.Date(2004, 12, 27, 9, 0, 0, 0, time.UTC),
+		time.Date(2009, 12, 28, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByEaster(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byeaster: []int{0},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 12, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 23, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByEasterPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byeaster: []int{1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 13, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 24, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByEasterNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byeaster: []int{-1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 22, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByHour(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Byhour:  []int{6, 18},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 6, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 18, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 9, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyBySecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 3, 9, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByHourAndMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 6, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByHourAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 3, 6, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyByHourAndMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDailyBySetPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{15, 45},
+		Bysetpos: []int{3, -3},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 15, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 6, 45, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 18, 15, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourly(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 10, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 11, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyInterval(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Interval: 2,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 11, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 13, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyIntervalLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Interval: 769,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 10, 4, 10, 0, 0, 0, time.UTC),
+		time.Date(1997, 11, 5, 11, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMonth(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:   3,
+		Bymonth: []int{1, 3},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 3, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 1, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMonthAndMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{5, 7},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 5, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 5, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 5, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     3,
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 10, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 11, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     3,
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 10, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 11, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMonthAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMonthAndNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMonthAndMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     4,
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 1, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 2, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 3, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     4,
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 1, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 2, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 3, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMonthAndYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 2, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 3, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMonthAndYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 2, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 3, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByWeekNo(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byweekno: []int{20},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 5, 11, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 11, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 11, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByWeekNoAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     3,
+		Byweekno:  []int{1},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 29, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 29, 1, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 29, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByWeekNoAndWeekDayLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     3,
+		Byweekno:  []int{52},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 1, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByWeekNoAndWeekDayLast(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     3,
+		Byweekno:  []int{-1},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 1, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByWeekNoAndWeekDay53(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:     3,
+		Byweekno:  []int{53},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 12, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 28, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 28, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByEaster(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byeaster: []int{0},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 12, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 12, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 12, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByEasterPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byeaster: []int{1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 13, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 13, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 13, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByEasterNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byeaster: []int{-1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 11, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 11, 1, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 11, 2, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByHour(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:   3,
+		Byhour:  []int{6, 18},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 6, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 18, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 10, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyBySecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 10, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByHourAndMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 6, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByHourAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 3, 6, 0, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyByHourAndMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestHourlyBySetPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: HOURLY,
+		Count:    3,
+		Byminute: []int{15, 45},
+		Bysecond: []int{15, 45},
+		Bysetpos: []int{3, -3},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 15, 45, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 45, 15, 0, time.UTC),
+		time.Date(1997, 9, 2, 10, 15, 45, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutely(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 1, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyInterval(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Interval: 2,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 2, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 4, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyIntervalLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Interval: 1501,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 10, 1, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 11, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMonth(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:   3,
+		Bymonth: []int{1, 3},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 3, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 0, 1, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMonthAndMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{5, 7},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 5, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 5, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 1, 5, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     3,
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 1, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     3,
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 1, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMonthAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMonthAndNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMonthAndMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     4,
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 1, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 2, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 3, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     4,
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 1, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 2, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 3, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMonthAndYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 2, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 3, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMonthAndYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 2, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 3, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByWeekNo(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Byweekno: []int{20},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 5, 11, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 11, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 5, 11, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByWeekNoAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     3,
+		Byweekno:  []int{1},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 29, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 29, 0, 1, 0, 0, time.UTC),
+		time.Date(1997, 12, 29, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByWeekNoAndWeekDayLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     3,
+		Byweekno:  []int{52},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 0, 1, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByWeekNoAndWeekDayLast(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     3,
+		Byweekno:  []int{-1},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 0, 1, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByWeekNoAndWeekDay53(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:     3,
+		Byweekno:  []int{53},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 12, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 28, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 12, 28, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByEaster(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Byeaster: []int{0},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 12, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 12, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 4, 12, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByEasterPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Byeaster: []int{1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 13, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 13, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 4, 13, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByEasterNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Byeaster: []int{-1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 11, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 11, 0, 1, 0, 0, time.UTC),
+		time.Date(1998, 4, 11, 0, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByHour(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:   3,
+		Byhour:  []int{6, 18},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 1, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 2, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 10, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyBySecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 1, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByHourAndMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 6, 6, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByHourAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 1, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyByHourAndMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMinutelyBySetPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MINUTELY,
+		Count:    3,
+		Bysecond: []int{15, 30, 45},
+		Bysetpos: []int{3, -3},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 15, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 45, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 1, 15, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondly(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 1, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyInterval(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Interval: 2,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 2, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 4, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyIntervalLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Interval: 90061,
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 10, 1, 1, 0, time.UTC),
+		time.Date(1997, 9, 4, 11, 2, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMonth(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:   3,
+		Bymonth: []int{1, 3},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 3, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 0, 0, 1, 0, time.UTC),
+		time.Date(1997, 9, 3, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMonthAndMonthDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{5, 7},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 5, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 5, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 1, 5, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     3,
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 1, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     3,
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 1, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMonthAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU, TH},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMonthAndNWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     3,
+		Bymonth:   []int{1, 3},
+		Byweekday: []Weekday{TU.Nth(1), TH.Nth(-1)},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:      3,
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMonthAndMonthDayAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:      3,
+		Bymonth:    []int{1, 3},
+		Bymonthday: []int{1, 3},
+		Byweekday:  []Weekday{TU, TH},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 1, 1, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     4,
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 0, 1, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 0, 2, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 0, 3, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     4,
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 31, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 0, 1, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 0, 2, 0, time.UTC),
+		time.Date(1997, 12, 31, 0, 0, 3, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMonthAndYearDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{1, 100, 200, 365},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 0, 2, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 0, 3, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMonthAndYearDayNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     4,
+		Bymonth:   []int{4, 7},
+		Byyearday: []int{-365, -266, -166, -1},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 10, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 0, 2, 0, time.UTC),
+		time.Date(1998, 4, 10, 0, 0, 3, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByWeekNo(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Byweekno: []int{20},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 5, 11, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 5, 11, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 5, 11, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByWeekNoAndWeekDay(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     3,
+		Byweekno:  []int{1},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 29, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 29, 0, 0, 1, 0, time.UTC),
+		time.Date(1997, 12, 29, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByWeekNoAndWeekDayLarge(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     3,
+		Byweekno:  []int{52},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 0, 0, 1, 0, time.UTC),
+		time.Date(1997, 12, 28, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByWeekNoAndWeekDayLast(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     3,
+		Byweekno:  []int{-1},
+		Byweekday: []Weekday{SU},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 12, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 12, 28, 0, 0, 1, 0, time.UTC),
+		time.Date(1997, 12, 28, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByWeekNoAndWeekDay53(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:     3,
+		Byweekno:  []int{53},
+		Byweekday: []Weekday{MO},
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 12, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 12, 28, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 12, 28, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByEaster(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Byeaster: []int{0},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 12, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 12, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 4, 12, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByEasterPos(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Byeaster: []int{1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 13, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 13, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 4, 13, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByEasterNeg(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Byeaster: []int{-1},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 11, 0, 0, 0, 0, time.UTC),
+		time.Date(1998, 4, 11, 0, 0, 1, 0, time.UTC),
+		time.Date(1998, 4, 11, 0, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByHour(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:   3,
+		Byhour:  []int{6, 18},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 0, 1, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 0, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 6, 1, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 6, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyBySecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 1, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByHourAndMinute(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 0, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 6, 1, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 6, 2, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByHourAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 0, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 0, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 1, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 9, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByHourAndMinuteAndSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Byhour:   []int{6, 18},
+		Byminute: []int{6, 18},
+		Bysecond: []int{6, 18},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 18, 6, 6, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 6, 18, 0, time.UTC),
+		time.Date(1997, 9, 2, 18, 18, 6, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSecondlyByHourAndMinuteAndSecondBug(t *testing.T) {
+	// This explores a bug found by Mathieu Bridon.
+	r, _ := NewRRule(ROption{Freq: SECONDLY,
+		Count:    3,
+		Bysecond: []int{0},
+		Byminute: []int{1},
+		Dtstart:  time.Date(2010, 3, 22, 12, 1, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(2010, 3, 22, 12, 1, 0, 0, time.UTC),
+		time.Date(2010, 3, 22, 13, 1, 0, 0, time.UTC),
+		time.Date(2010, 3, 22, 14, 1, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestUntilNotMatching(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		Until:   time.Date(1997, 9, 5, 8, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestUntilMatching(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		Until:   time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestUntilSingle(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		Until:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestUntilEmpty(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		Until:   time.Date(1997, 9, 1, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestUntilWithDate(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		Until:   time.Date(1997, 9, 5, 0, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWkStIntervalMO(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Interval:  2,
+		Byweekday: []Weekday{TU, SU},
+		Wkst:      MO,
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 7, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 16, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestWkStIntervalSU(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: WEEKLY,
+		Count:     3,
+		Interval:  2,
+		Byweekday: []Weekday{TU, SU},
+		Wkst:      SU,
+		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 14, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 16, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDTStartIsDate(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 0, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 0, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestDTStartWithMicroseconds(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		Count:   3,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 500000000, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestMaxYear(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:      3,
+		Bymonth:    []int{2},
+		Bymonthday: []int{31},
+		Dtstart:    time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestBefore(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		// Count:5,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)
+	value := r.Before(time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC), false)
+	if value != want {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestBeforeInc(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		// Count:5,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC)
+	value := r.Before(time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC), true)
+	if value != want {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestAfter(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		// Count:5,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+
+	want := time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC)
+	value := r.After(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC), false)
+	if value != want {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestAfterInc(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		// Count:5,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)
+	value := r.After(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC), true)
+	if value != want {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestBetween(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		// Count:5,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC)}
+	value := r.Between(time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC), time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC), false)
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestBetweenInc(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		// Count:5,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC)}
+	value := r.Between(time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC), time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC), true)
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
 	}
 }

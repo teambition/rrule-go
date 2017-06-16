@@ -136,7 +136,7 @@ func (option *ROption) String() string {
 	return strings.Join(result, ";")
 }
 
-// StrToROption convert string to ROption
+// StrToROption converts string to ROption
 func StrToROption(rfcString string) (*ROption, error) {
 	rfcString = strings.TrimSpace(rfcString)
 	if len(rfcString) == 0 {
@@ -200,11 +200,69 @@ func (r *RRule) String() string {
 	return r.origOptions.String()
 }
 
-// StrToRRule convert string to RRule
+// StrToRRule converts string to RRule
 func StrToRRule(rfcString string) (*RRule, error) {
 	option, e := StrToROption(rfcString)
 	if e != nil {
 		return nil, e
 	}
 	return NewRRule(*option)
+}
+
+// StrToRRuleSet converts string to RRuleSet
+func StrToRRuleSet(s string) (*Set, error) {
+	s = strings.TrimSpace(strings.ToUpper(s))
+	if s == "" {
+		return nil, errors.New("empty string")
+	}
+	set := Set{}
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		temp := strings.SplitN(line, ":", 2)
+		if len(temp) != 2 {
+			return nil, errors.New("bad format")
+		}
+		name, value := temp[0], temp[1]
+		parms := strings.Split(name, ";")
+		name = parms[0]
+		parms = parms[1:]
+		switch name {
+		case "RRULE", "EXRULE":
+			for _, parm := range parms {
+				return nil, fmt.Errorf("unsupported RRULE/EXRULE parm: %v", parm)
+			}
+			r, err := StrToRRule(value)
+			if err != nil {
+				return nil, fmt.Errorf("strToRRule failed: %v", err)
+			}
+			if name == "RRULE" {
+				set.RRule(r)
+			} else {
+				set.ExRule(r)
+			}
+		case "RDATE", "EXDATE":
+			for _, parm := range parms {
+				if parm != "VALUE=DATE-TIME" {
+					return nil, fmt.Errorf("unsupported RDATE/EXDATE parm: %v", parm)
+				}
+			}
+			for _, datestr := range strings.Split(value, ",") {
+				t, err := strToTime(datestr)
+				if err != nil {
+					return nil, fmt.Errorf("strToTime failed: %v", err)
+				}
+				if name == "RDATE" {
+					set.RDate(t)
+				} else {
+					set.ExDate(t)
+				}
+			}
+		default:
+			return nil, fmt.Errorf("unsupported property: %v", name)
+		}
+	}
+	return &set, nil
 }

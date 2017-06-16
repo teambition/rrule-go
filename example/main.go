@@ -80,7 +80,7 @@ func exampleRRuleSet() {
 	// 1997-09-23 09:00:00 +0800 CST]
 }
 
-func exampleStr() {
+func exampleStrToRRule() {
 	fmt.Println()
 	r, _ := rrule.StrToRRule("FREQ=DAILY;INTERVAL=10;COUNT=5")
 	fmt.Println(r.All())
@@ -91,8 +91,15 @@ func exampleStr() {
 	// 2017-04-24 14:12:02 +0800 CST]
 }
 
+func exampleStrToRRuleSet() {
+	s, _ := rrule.StrToRRuleSet(`RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5
+RDATE:20060102T150405Z`)
+	fmt.Println(s.All())
+}
+
 func main() {
 	exampleRRule()
 	exampleRRuleSet()
-	exampleStr()
+	exampleStrToRRule()
+	exampleStrToRRuleSet()
 }

@@ -99,7 +99,7 @@ type ROption struct {
 // RRule offers a small, complete, and very fast, implementation of the recurrence rules
 // documented in the iCalendar RFC, including support for caching of results.
 type RRule struct {
-	origOptions             ROption
+	OrigOptions             ROption
 	freq                    Frequency
 	dtstart                 time.Time
 	interval                int
@@ -124,7 +124,7 @@ type RRule struct {
 // NewRRule construct a new RRule instance
 func NewRRule(arg ROption) (*RRule, error) {
 	r := RRule{}
-	r.origOptions = arg
+	r.OrigOptions = arg
 	if arg.Dtstart.IsZero() {
 		arg.Dtstart = time.Now()
 	}

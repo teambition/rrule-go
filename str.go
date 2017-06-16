@@ -197,7 +197,7 @@ func StrToROption(rfcString string) (*ROption, error) {
 }
 
 func (r *RRule) String() string {
-	return r.origOptions.String()
+	return r.OrigOptions.String()
 }
 
 // StrToRRule converts string to RRule

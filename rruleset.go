@@ -18,6 +18,11 @@ func (set *Set) RRule(rrule *RRule) {
 	set.rrule = append(set.rrule, rrule)
 }
 
+// GetRRule return the rrules in the set
+func (set *Set) GetRRule() []*RRule {
+	return set.rrule
+}
+
 // RDate include the given datetime instance in the recurrence set generation.
 func (set *Set) RDate(rdate time.Time) {
 	set.rdate = append(set.rdate, rdate)

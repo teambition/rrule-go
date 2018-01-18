@@ -383,7 +383,7 @@ func (info *iterInfo) rebuild(year int, month time.Month) {
 	}
 	if len(info.rrule.byeaster) != 0 {
 		info.eastermask = make([]int, info.yearlen+7)
-		eyday := int(easter(year, info.rrule.dtstart.Location()).Sub(info.firstyday).Hours() / 24)
+		eyday := easter(year).YearDay() - 1
 		for _, offset := range info.rrule.byeaster {
 			info.eastermask[eyday+offset] = 1
 		}
@@ -412,9 +412,7 @@ func (info *iterInfo) getdayset(freq Frequency, year int, month time.Month, day 
 	case WEEKLY:
 		// We need to handle cross-year weeks here.
 		set := make([]*int, info.yearlen+7)
-		i := int(time.Date(
-			year, month, day, 0, 0, 0, 0,
-			info.rrule.dtstart.Location()).Sub(info.firstyday).Hours() / 24)
+		i := time.Date(year, month, day, 0, 0, 0, 0, time.UTC).YearDay() - 1
 		start := i
 		for j := 0; j < 7; j++ {
 			temp := i
@@ -431,9 +429,7 @@ func (info *iterInfo) getdayset(freq Frequency, year int, month time.Month, day 
 	}
 	// DAILY, HOURLY, MINUTELY, SECONDLY:
 	set := make([]*int, info.yearlen)
-	i := int(time.Date(
-		year, month, day, 0, 0, 0, 0,
-		info.rrule.dtstart.Location()).Sub(info.firstyday).Hours() / 24)
+	i := time.Date(year, month, day, 0, 0, 0, 0, time.UTC).YearDay() - 1
 	set[i] = &i
 	return set, i, i + 1
 }

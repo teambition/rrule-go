@@ -16,6 +16,11 @@ type Set struct {
 }
 
 func (set *Set) String() string {
+	res := set.Recurrences()
+	return strings.Join(res, "\n")
+}
+
+func (set *Set) Recurrences() []string {
 	res := []string{}
 	for _, o := range set.rrule {
 		res = append(res, fmt.Sprintf("RRULE:%v", o.String()))
@@ -29,7 +34,7 @@ func (set *Set) String() string {
 	for _, o := range set.exdate {
 		res = append(res, fmt.Sprintf("EXDATE:%v", o.Format(strformat)))
 	}
-	return strings.Join(res, "\n")
+	return res
 }
 
 // RRule include the given rrule instance in the recurrence set generation.

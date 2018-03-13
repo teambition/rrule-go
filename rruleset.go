@@ -1,7 +1,9 @@
 package rrule
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -11,6 +13,23 @@ type Set struct {
 	rdate  []time.Time
 	exrule []*RRule
 	exdate []time.Time
+}
+
+func (set *Set) String() string {
+	res := []string{}
+	for _, o := range set.rrule {
+		res = append(res, fmt.Sprintf("RRULE:%v", o.String()))
+	}
+	for _, o := range set.rdate {
+		res = append(res, fmt.Sprintf("RDATE:%v", o.Format(strformat)))
+	}
+	for _, o := range set.exrule {
+		res = append(res, fmt.Sprintf("EXRULE:%v", o.String()))
+	}
+	for _, o := range set.exdate {
+		res = append(res, fmt.Sprintf("EXDATE:%v", o.Format(strformat)))
+	}
+	return strings.Join(res, "\n")
 }
 
 // RRule include the given rrule instance in the recurrence set generation.

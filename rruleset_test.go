@@ -49,6 +49,21 @@ EXDATE:19970918T090000Z`
 	}
 }
 
+func TestSetRecurrences(t *testing.T) {
+	set := Set{}
+	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	set.RRule(r)
+	value := set.Recurrences()
+	if len(value) != 1 {
+		t.Errorf("Wrong length for recurrence got=%v want=%v", len(value), 1)
+	}
+	want := "RRULE:FREQ=YEARLY;DTSTART=19970902T090000Z;COUNT=1;BYDAY=TU"
+	if value[0] != want {
+		t.Errorf("get %v, want %v", value[0], want)
+	}
+}
+
 func TestSetDate(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},

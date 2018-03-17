@@ -204,6 +204,11 @@ func (r *RRule) String() string {
 	return r.OrigOptions.String()
 }
 
+func (set *Set) String() string {
+	res := set.Recurrences()
+	return strings.Join(res, "\n")
+}
+
 // StrToRRule converts string to RRule
 func StrToRRule(rfcString string) (*RRule, error) {
 	option, e := StrToROption(rfcString)

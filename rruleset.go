@@ -3,7 +3,6 @@ package rrule
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -15,24 +14,19 @@ type Set struct {
 	exdate []time.Time
 }
 
-func (set *Set) String() string {
-	res := set.Recurrences()
-	return strings.Join(res, "\n")
-}
-
 func (set *Set) Recurrences() []string {
 	res := []string{}
-	for _, o := range set.rrule {
-		res = append(res, fmt.Sprintf("RRULE:%v", o.String()))
+	for _, item := range set.rrule {
+		res = append(res, fmt.Sprintf("RRULE:%s", item))
 	}
-	for _, o := range set.rdate {
-		res = append(res, fmt.Sprintf("RDATE:%v", o.Format(strformat)))
+	for _, item := range set.rdate {
+		res = append(res, fmt.Sprintf("RDATE:%s", timeToStr(item)))
 	}
-	for _, o := range set.exrule {
-		res = append(res, fmt.Sprintf("EXRULE:%v", o.String()))
+	for _, item := range set.exrule {
+		res = append(res, fmt.Sprintf("EXRULE:%s", item))
 	}
-	for _, o := range set.exdate {
-		res = append(res, fmt.Sprintf("EXDATE:%v", o.Format(strformat)))
+	for _, item := range set.exdate {
+		res = append(res, fmt.Sprintf("EXDATE:%s", timeToStr(item)))
 	}
 	return res
 }

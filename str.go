@@ -205,7 +205,7 @@ func (r *RRule) String() string {
 }
 
 func (set *Set) String() string {
-	res := set.Recurrences()
+	res := set.Recurrence()
 	return strings.Join(res, "\n")
 }
 

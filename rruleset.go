@@ -14,7 +14,8 @@ type Set struct {
 	exdate []time.Time
 }
 
-func (set *Set) Recurrences() []string {
+// Recurrence returns a slice of all the recurrence rules for a set
+func (set *Set) Recurrence() []string {
 	res := []string{}
 	for _, item := range set.rrule {
 		res = append(res, fmt.Sprintf("RRULE:%s", item))

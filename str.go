@@ -8,12 +8,16 @@ import (
 	"time"
 )
 
+const (
+	strformat = "20060102T150405Z"
+)
+
 func timeToStr(time time.Time) string {
-	return time.UTC().Format("20060102T150405Z")
+	return time.UTC().Format(strformat)
 }
 
 func strToTime(str string) (time.Time, error) {
-	return time.Parse("20060102T150405Z", str)
+	return time.Parse(strformat, str)
 }
 
 func (f Frequency) String() string {
@@ -198,6 +202,11 @@ func StrToROption(rfcString string) (*ROption, error) {
 
 func (r *RRule) String() string {
 	return r.OrigOptions.String()
+}
+
+func (set *Set) String() string {
+	res := set.Recurrence()
+	return strings.Join(res, "\n")
 }
 
 // StrToRRule converts string to RRule

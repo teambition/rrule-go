@@ -47,6 +47,11 @@ func (set *Set) RDate(rdate time.Time) {
 	set.rdate = append(set.rdate, rdate)
 }
 
+// GetRDate returns explicitly added dates (rdates) in the set
+func (set *Set) GetRDate() []time.Time {
+	return set.rdate
+}
+
 // ExRule include the given rrule instance in the recurrence set exclusion list.
 // Dates which are part of the given recurrence rules will not be generated,
 // even if some inclusive rrule or rdate matches them.
@@ -54,11 +59,21 @@ func (set *Set) ExRule(exrule *RRule) {
 	set.exrule = append(set.exrule, exrule)
 }
 
+// GetExRule returns exclusion rrules list from in the set
+func (set *Set) GetExRule() []*RRule {
+	return set.exrule
+}
+
 // ExDate include the given datetime instance in the recurrence set exclusion list.
 // Dates included that way will not be generated,
 // even if some inclusive rrule or rdate matches them.
 func (set *Set) ExDate(exdate time.Time) {
 	set.exdate = append(set.exdate, exdate)
+}
+
+// GetExDate returns explicitly excluded dates (exdates) in the set
+func (set *Set) GetExDate() []time.Time {
+	return set.exdate
 }
 
 type genItem struct {

@@ -9,15 +9,16 @@ import (
 )
 
 const (
-	strformat = "20060102T150405Z"
+	// DateTimeFormat is date-time format used in iCalendar (RFC 5545)
+	DateTimeFormat = "20060102T150405Z"
 )
 
 func timeToStr(time time.Time) string {
-	return time.UTC().Format(strformat)
+	return time.UTC().Format(DateTimeFormat)
 }
 
 func strToTime(str string) (time.Time, error) {
-	return time.Parse(strformat, str)
+	return time.Parse(DateTimeFormat, str)
 }
 
 func (f Frequency) String() string {

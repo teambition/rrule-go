@@ -236,20 +236,15 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 		if line == "" {
 			continue
 		}
-		temp := strings.SplitN(line, ":", 2)
-		if len(temp) != 2 {
+		nameLen := strings.IndexAny(line, ";:")
+		if nameLen < 0 {
 			return nil, errors.New("bad format")
 		}
-		name, value := temp[0], temp[1]
-		parms := strings.Split(name, ";")
-		name = parms[0]
-		parms = parms[1:]
+		name := line[:nameLen]
+
 		switch name {
 		case "RRULE", "EXRULE":
-			for _, parm := range parms {
-				return nil, fmt.Errorf("unsupported RRULE/EXRULE parm: %v", parm)
-			}
-			r, err := StrToRRule(value)
+			r, err := StrToRRule(line[nameLen+1:])
 			if err != nil {
 				return nil, fmt.Errorf("strToRRule failed: %v", err)
 			}
@@ -259,16 +254,11 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 				set.ExRule(r)
 			}
 		case "RDATE", "EXDATE":
-			for _, parm := range parms {
-				if parm != "VALUE=DATE-TIME" {
-					return nil, fmt.Errorf("unsupported RDATE/EXDATE parm: %v", parm)
-				}
+			ts, err := StrToDates(line[nameLen+1:])
+			if err != nil {
+				return nil, fmt.Errorf("strToDates failed: %v", err)
 			}
-			for _, datestr := range strings.Split(value, ",") {
-				t, err := strToTime(datestr)
-				if err != nil {
-					return nil, fmt.Errorf("strToTime failed: %v", err)
-				}
+			for _, t := range ts {
 				if name == "RDATE" {
 					set.RDate(t)
 				} else {
@@ -279,5 +269,33 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 			return nil, fmt.Errorf("unsupported property: %v", name)
 		}
 	}
+
 	return &set, nil
+}
+
+// StrToDates accepts string with format: "VALUE=DATE-TIME:{time},{time},...,{time}"
+// or simply "{time},{time},...{time}" and parses it to array of dates
+// may be used to parse RDATE/EXDATE rules
+func StrToDates(str string) (ts []time.Time, err error) {
+	tmp := strings.Split(str, ":")
+	if len(tmp) > 2 {
+		return nil, fmt.Errorf("bad format")
+	}
+	if len(tmp) == 2 {
+		params := strings.Split(tmp[0], ";")
+		for _, param := range params {
+			if param != "VALUE=DATE-TIME" {
+				return nil, fmt.Errorf("unsupported RDATE/EXDATE parm: %v", param)
+			}
+		}
+		tmp = tmp[1:]
+	}
+	for _, datestr := range strings.Split(tmp[0], ",") {
+		t, err := strToTime(datestr)
+		if err != nil {
+			return nil, fmt.Errorf("strToTime failed: %v", err)
+		}
+		ts = append(ts, t)
+	}
+	return
 }

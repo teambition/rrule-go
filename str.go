@@ -220,13 +220,19 @@ func StrToRRule(rfcString string) (*RRule, error) {
 
 // StrToRRuleSet converts string to RRuleSet
 func StrToRRuleSet(s string) (*Set, error) {
-	s = strings.TrimSpace(strings.ToUpper(s))
+	s = strings.TrimSpace(s)
 	if s == "" {
 		return nil, errors.New("empty string")
 	}
+	ss := strings.Split(s, "\n")
+	return StrSliceToRRuleSet(ss)
+}
+
+// StrSliceToRRuleSet converts given str slice to RRuleSet
+func StrSliceToRRuleSet(ss []string) (*Set, error) {
 	set := Set{}
-	for _, line := range strings.Split(s, "\n") {
-		line = strings.TrimSpace(line)
+	for _, line := range ss {
+		line = strings.ToUpper(strings.TrimSpace(line))
 		if line == "" {
 			continue
 		}

@@ -113,3 +113,8 @@ func exampleStr() {
 ```
 
 For more examples see [python-dateutil](http://labix.org/python-dateutil/) documentation.
+
+## License
+
+Gear is licensed under the [MIT](https://github.com/teambition/gear/blob/master/LICENSE) license.
+Copyright &copy; 2017-2018 [Teambition](https://www.teambition.com).

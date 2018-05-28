@@ -34,6 +34,7 @@ func TestInvalidString(t *testing.T) {
 func TestSetStr(t *testing.T) {
 	setStr := "RRULE:FREQ=DAILY;UNTIL=20180517T235959Z\n" +
 		"RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU\n" +
+		"RRULE:FREQ=MONTHLY;UNTIL=20180520;BYMONTHDAY=1,2,3\n" +
 		"EXRULE:FREQ=WEEKLY;INTERVAL=4;BYDAY=MO\n" +
 		"EXDATE;VALUE=DATE-TIME:20180525T070000Z,20180530T130000Z\n" +
 		"RDATE;VALUE=DATE-TIME:20180801T131313Z,20180902T141414Z\n"
@@ -45,14 +46,17 @@ func TestSetStr(t *testing.T) {
 
 	// matching parsed RRules
 	rRules := set.GetRRule()
-	if len(rRules) != 2 {
-		t.Errorf("Unexpected number of rrule parsed: %v != 2, rrules: %v", len(rRules), rRules)
+	if len(rRules) != 3 {
+		t.Errorf("Unexpected number of rrule parsed: %v != 3, rrules: %v", len(rRules), rRules)
 	}
 	if rRules[0].String() != "FREQ=DAILY;UNTIL=20180517T235959Z" {
 		t.Errorf("Unexpected rrule: %s", rRules[0].String())
 	}
 	if rRules[1].String() != "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU" {
 		t.Errorf("Unexpected rrule: %s", rRules[0].String())
+	}
+	if rRules[2].String() != "FREQ=MONTHLY;UNTIL=20180520T000000Z;BYMONTHDAY=1,2,3" {
+		t.Errorf("Unexpected rrule: %s", rRules[2].String())
 	}
 
 	// matching parsed EXRules

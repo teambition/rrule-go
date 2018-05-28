@@ -11,6 +11,10 @@ import (
 const (
 	// DateTimeFormat is date-time format used in iCalendar (RFC 5545)
 	DateTimeFormat = "20060102T150405Z"
+	// LocalDateTimeFormat is a date-time format without Z prefix
+	LocalDateTimeFormat = "20060102T150405"
+	// DateFormat is date format used in iCalendar (RFC 5545)
+	DateFormat = "20060102"
 )
 
 func timeToStr(time time.Time) string {
@@ -18,6 +22,17 @@ func timeToStr(time time.Time) string {
 }
 
 func strToTime(str string) (time.Time, error) {
+	return strToTimeInLoc(str, time.UTC)
+}
+
+func strToTimeInLoc(str string, loc *time.Location) (time.Time, error) {
+	if len(str) == len(DateFormat) {
+		return time.ParseInLocation(DateFormat, str, loc)
+	}
+	if len(str) == len(LocalDateTimeFormat) {
+		return time.ParseInLocation(LocalDateTimeFormat, str, loc)
+	}
+	// date-time format carries zone info
 	return time.Parse(DateTimeFormat, str)
 }
 
@@ -143,6 +158,13 @@ func (option *ROption) String() string {
 
 // StrToROption converts string to ROption
 func StrToROption(rfcString string) (*ROption, error) {
+	return StrToROptionInLocation(rfcString, time.UTC)
+}
+
+// StrToROptionInLocation is same as StrToROption but in case local
+// time is supplied as date-time/date field (ex. UNTIL), it is parsed
+// as a time in a given location (time zone)
+func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, error) {
 	rfcString = strings.TrimSpace(rfcString)
 	if len(rfcString) == 0 {
 		return nil, errors.New("empty string")
@@ -162,7 +184,7 @@ func StrToROption(rfcString string) (*ROption, error) {
 		case "FREQ":
 			result.Freq, e = strToFreq(value)
 		case "DTSTART":
-			result.Dtstart, e = strToTime(value)
+			result.Dtstart, e = strToTimeInLoc(value, loc)
 		case "INTERVAL":
 			result.Interval, e = strconv.Atoi(value)
 		case "WKST":
@@ -170,7 +192,7 @@ func StrToROption(rfcString string) (*ROption, error) {
 		case "COUNT":
 			result.Count, e = strconv.Atoi(value)
 		case "UNTIL":
-			result.Until, e = strToTime(value)
+			result.Until, e = strToTimeInLoc(value, loc)
 		case "BYSETPOS":
 			result.Bysetpos, e = strToInts(value)
 		case "BYMONTH":

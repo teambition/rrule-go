@@ -245,3 +245,29 @@ func TestSetBetweenInc(t *testing.T) {
 		t.Errorf("get %v, want %v", value, want)
 	}
 }
+
+func TestSetTrickyTimeZones(t *testing.T) {
+	set := Set{}
+
+	moscow, _ := time.LoadLocation("Europe/Moscow")
+	newYork, _ := time.LoadLocation("America/New_York")
+	tehran, _ := time.LoadLocation("Asia/Tehran")
+
+	r, _ := NewRRule(ROption{
+		Freq:    DAILY,
+		Count:   4,
+		Dtstart: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC).In(moscow),
+	})
+	set.RRule(r)
+
+	set.ExDate(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC).In(newYork))
+	set.ExDate(time.Date(2000, 1, 2, 0, 0, 0, 0, time.UTC).In(tehran))
+	set.ExDate(time.Date(2000, 1, 3, 0, 0, 0, 0, time.UTC).In(moscow))
+	set.ExDate(time.Date(2000, 1, 4, 0, 0, 0, 0, time.UTC))
+
+	occurrences := set.All()
+
+	if len(occurrences) > 0 {
+		t.Errorf("No all occurrences excluded by ExDate: [%+v]", occurrences)
+	}
+}

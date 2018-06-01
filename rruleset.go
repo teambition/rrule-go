@@ -123,7 +123,7 @@ func (set *Set) Iterator() (next func() (time.Time, bool)) {
 				rlist = rlist[1:]
 			}
 			sort.Sort(genItemSlice(rlist))
-			if lastdt.IsZero() || lastdt != dt {
+			if lastdt.IsZero() || !lastdt.Equal(dt) {
 				for len(exlist) != 0 && exlist[0].dt.Before(dt) {
 					exlist[0].dt, ok = exlist[0].gen()
 					if !ok {
@@ -132,7 +132,7 @@ func (set *Set) Iterator() (next func() (time.Time, bool)) {
 					sort.Sort(genItemSlice(exlist))
 				}
 				lastdt = dt
-				if len(exlist) == 0 || dt != exlist[0].dt {
+				if len(exlist) == 0 || !dt.Equal(exlist[0].dt) {
 					return dt, true
 				}
 			}

@@ -3679,3 +3679,13 @@ func TestBetweenInc(t *testing.T) {
 		t.Errorf("get %v, want %v", value, want)
 	}
 }
+
+func TestWeekdayGetters(t *testing.T) {
+	wd := Weekday{n: 2, weekday: 0}
+	if wd.N() != 2 {
+		t.Errorf("Ord week getter is wrong")
+	}
+	if wd.Day() != 0 {
+		t.Errorf("Day index getter is wrong")
+	}
+}

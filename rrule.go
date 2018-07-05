@@ -65,6 +65,16 @@ func (wday *Weekday) Nth(n int) Weekday {
 	return Weekday{wday.weekday, n}
 }
 
+// N returns index of the week, e.g. for 3MO, N() will return 3
+func (wday *Weekday) N() int {
+	return wday.n
+}
+
+// Day returns index of the day in a week (0 for MO, 6 for SU)
+func (wday *Weekday) Day() int {
+	return wday.weekday
+}
+
 // Weekdays
 var (
 	MO = Weekday{weekday: 0}

@@ -21,6 +21,10 @@ func timeToStr(time time.Time) string {
 	return time.UTC().Format(DateTimeFormat)
 }
 
+func timeToDtStartStr(time time.Time) string {
+	return fmt.Sprintf("TZID=%s:%s", time.Location().String(), time.Format(LocalDateTimeFormat))
+}
+
 func strToTime(str string) (time.Time, error) {
 	return strToTimeInLoc(str, time.UTC)
 }
@@ -122,7 +126,7 @@ func strToInts(value string) ([]int, error) {
 
 func (option *ROption) String() string {
 	result := []string{fmt.Sprintf("FREQ=%v", option.Freq)}
-	if !option.Dtstart.IsZero() {
+	if !option.Dtstart.IsZero() && !option.RFC {
 		result = append(result, fmt.Sprintf("DTSTART=%s", timeToStr(option.Dtstart)))
 	}
 	if option.Interval != 0 {
@@ -170,6 +174,7 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 		return nil, errors.New("empty string")
 	}
 	result := ROption{}
+	result.RFC = true
 	for _, attr := range strings.Split(rfcString, ";") {
 		keyValue := strings.Split(attr, "=")
 		if len(keyValue) != 2 {
@@ -184,6 +189,7 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 		case "FREQ":
 			result.Freq, e = strToFreq(value)
 		case "DTSTART":
+			result.RFC = false
 			result.Dtstart, e = strToTimeInLoc(value, loc)
 		case "INTERVAL":
 			result.Interval, e = strconv.Atoi(value)
@@ -254,23 +260,50 @@ func StrToRRuleSet(s string) (*Set, error) {
 // StrSliceToRRuleSet converts given str slice to RRuleSet
 func StrSliceToRRuleSet(ss []string) (*Set, error) {
 	set := Set{}
+
+	// According to RFC DTSTART is always the first line.
+	firstName, err := processRRuleName(ss[0])
+	if err != nil {
+		return nil, err
+	}
+
+	if firstName == "DTSTART" {
+		nameLen := strings.IndexAny(ss[0], ";:")
+		dt, err := strToDtStart(ss[0][nameLen+1:])
+		if err != nil {
+			return nil, fmt.Errorf("strToDtStart failed: %v", err)
+		}
+		set.DTStart(dt)
+		// We've processed the first one
+		ss = ss[1:]
+	}
+
 	for _, line := range ss {
-		line = strings.ToUpper(strings.TrimSpace(line))
-		if line == "" {
-			continue
+
+		name, err := processRRuleName(line)
+		if err != nil {
+			return nil, err
 		}
+
 		nameLen := strings.IndexAny(line, ";:")
-		if nameLen < 0 {
-			return nil, errors.New("bad format")
-		}
-		name := line[:nameLen]
 
 		switch name {
 		case "RRULE", "EXRULE":
 			r, err := StrToRRule(line[nameLen+1:])
+
 			if err != nil {
 				return nil, fmt.Errorf("strToRRule failed: %v", err)
 			}
+
+			if !set.GetDTStart().IsZero() {
+				opt := r.OrigOptions
+				opt.Dtstart = set.GetDTStart()
+				r, err = NewRRule(opt)
+				if err != nil {
+					return nil, fmt.Errorf("could not add dtstart to rule: %v", r)
+				}
+			}
+
 			if name == "RRULE" {
 				set.RRule(r)
 			} else {
@@ -321,4 +354,46 @@ func StrToDates(str string) (ts []time.Time, err error) {
 		ts = append(ts, t)
 	}
 	return
+}
+
+// processRRuleName processes the name of an RRule off a multi-line RRule set
+func processRRuleName(line string) (string, error) {
+	line = strings.ToUpper(strings.TrimSpace(line))
+	if line == "" {
+		return "", nil
+	}
+	nameLen := strings.IndexAny(line, ";:")
+	if nameLen < 0 {
+		return "", fmt.Errorf("bad format %v", line)
+	}
+	name := line[:nameLen]
+
+	return name, nil
+}
+
+// strToDtStart accepts string with format: "(TZID={timezone}:)?{time}" and parses it to a date
+// may be used to parse DTSTART rules, without the DTSTART; part.
+func strToDtStart(str string) (time.Time, error) {
+	tmp := strings.Split(str, ":")
+	if len(tmp) > 2 || len(tmp) == 0 {
+		return time.Time{}, fmt.Errorf("bad format")
+	}
+	if len(tmp) == 2 {
+		// tzid
+		tzStr := strings.Split(tmp[0], "=")
+		if tzStr[0] != "TZID" || len(tzStr[1]) < 1 {
+			return time.Time{}, fmt.Errorf("bad parameter format")
+		}
+		loc, err := time.LoadLocation(tzStr[1])
+		if err != nil {
+			return time.Time{}, fmt.Errorf("invalid timezone: %v", err.Error())
+		}
+		return strToTimeInLoc(tmp[1], loc)
+	}
+	if len(tmp) == 1 {
+		// no tzid
+		return strToTime(tmp[0])
+	}
+
+	return time.Time{}, fmt.Errorf("impossible string")
 }

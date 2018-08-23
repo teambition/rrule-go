@@ -2,13 +2,57 @@ package rrule
 
 import (
 	"testing"
+	"time"
 )
+
+func TestRFCRuleToStr(t *testing.T) {
+	nyLoc, _ := time.LoadLocation("America/New_York")
+	dtStart := time.Date(2018, 1, 1, 9, 0, 0, 0, nyLoc)
+
+	r, _ := NewRRule(ROption{Freq: MONTHLY, Dtstart: dtStart, RFC: true})
+	if r.String() != "FREQ=MONTHLY" {
+		t.Errorf("Expected RFC string FREQ=MONTHLY, got %v", r.String())
+	}
+}
+
+func TestRuleToStr(t *testing.T) {
+	nyLoc, _ := time.LoadLocation("America/New_York")
+	dtStart := time.Date(2018, 1, 1, 9, 0, 0, 0, nyLoc)
+
+	r, _ := NewRRule(ROption{Freq: MONTHLY, Dtstart: dtStart})
+	if r.String() != "FREQ=MONTHLY;DTSTART=20180101T140000Z" {
+		t.Errorf("Expected non RFC string FREQ=MONTHLY;DTSTART=20180101T140000Z, got %v", r.String())
+	}
+}
+
+func TestRFCSetToString(t *testing.T) {
+	nyLoc, _ := time.LoadLocation("America/New_York")
+	dtStart := time.Date(2018, 1, 1, 9, 0, 0, 0, nyLoc)
+
+	r, _ := NewRRule(ROption{Freq: MONTHLY, Dtstart: dtStart, RFC: true})
+	if r.String() != "FREQ=MONTHLY" {
+		t.Errorf("Expected RFC string FREQ=MONTHLY, got %v", r.String())
+	}
+
+	expectedSetStr := "DTSTART:TZID=America/New_York:20180101T090000\n" + "RRULE:FREQ=MONTHLY"
+
+	set := Set{}
+	set.RRule(r)
+	set.DTStart(dtStart)
+	if set.String() != expectedSetStr {
+		t.Errorf("Expected RFC Set string %s, got %s", expectedSetStr, set.String())
+	}
+}
 
 func TestStr(t *testing.T) {
 	str := "FREQ=WEEKLY;DTSTART=20120201T093000Z;INTERVAL=5;WKST=TU;COUNT=2;UNTIL=20130130T230000Z;BYSETPOS=2;BYMONTH=3;BYYEARDAY=95;BYWEEKNO=1;BYDAY=MO,+2FR;BYHOUR=9;BYMINUTE=30;BYSECOND=0;BYEASTER=-1"
 	r, _ := StrToRRule(str)
 	if s := r.String(); s != str {
 		t.Errorf("StrToRRule(%q).String() = %q, want %q", str, s, str)
+	}
+
+	if r.OrigOptions.RFC {
+		t.Errorf("StrToRRule(%q).OrigOptions.RFC = true, want false", str)
 	}
 }
 
@@ -44,6 +88,106 @@ func TestSetStr(t *testing.T) {
 		t.Fatalf("StrToRRuleSet(%s) returned error: %v", setStr, err)
 	}
 
+	assertRulesMatch(set, t)
+}
+
+func TestStrToDtStart(t *testing.T) {
+	validCases := []string{
+		"19970714T133000",
+		"19970714T173000Z",
+		"TZID=America/New_York:19970714T133000",
+	}
+
+	invalidCases := []string{
+		"DTSTART;TZID=America/New_York:19970714T133000",
+		"19970714T1330000",
+		"DTSTART;TZID=:20180101T090000",
+		"TZID=:20180101T090000",
+		"TZID=notatimezone:20180101T090000",
+		"DTSTART:19970714T133000",
+		"DTSTART:19970714T133000Z",
+		"DTSTART;:19970714T133000Z",
+		";:19970714T133000Z",
+	}
+
+	for _, item := range validCases {
+		if _, e := strToDtStart(item); e != nil {
+			t.Errorf("strToDtStart(%q) error = %s, want nil", item, e.Error())
+		}
+	}
+
+	for _, item := range invalidCases {
+		if _, e := strToDtStart(item); e == nil {
+			t.Errorf("strToDtStart(%q) err = nil, want not nil", item)
+		}
+	}
+}
+
+func TestRFCSetStr(t *testing.T) {
+	inputStr := "DTSTART;TZID=America/New_York:20180101T090000\n" +
+		"RRULE:FREQ=DAILY;UNTIL=20180517T235959Z\n" +
+		"RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU\n" +
+		"RRULE:FREQ=MONTHLY;UNTIL=20180520;BYMONTHDAY=1,2,3\n" +
+		"EXRULE:FREQ=WEEKLY;INTERVAL=4;BYDAY=MO\n" +
+		"EXDATE;VALUE=DATE-TIME:20180525T070000Z,20180530T130000Z\n" +
+		"RDATE;VALUE=DATE-TIME:20180801T131313Z,20180902T141414Z\n"
+
+	set, err := StrToRRuleSet(inputStr)
+	if err != nil {
+		t.Fatalf("StrToRRuleSet(%s) returned error: %v", inputStr, err)
+	}
+
+	nyLoc, _ := time.LoadLocation("America/New_York")
+	dtWantTime := time.Date(2018, 1, 1, 9, 0, 0, 0, nyLoc)
+
+	for _, rrule := range set.GetRRule() {
+		if !rrule.OrigOptions.RFC {
+			t.Fatalf("Expected RRule %s to be RFC compliant", rrule)
+		}
+
+		if !dtWantTime.Equal(rrule.dtstart) {
+			t.Fatalf("Expected RRule dtstart to be %v got %v", dtWantTime, rrule.dtstart)
+		}
+	}
+
+	for _, exrule := range set.GetExRule() {
+		if !exrule.OrigOptions.RFC {
+			t.Fatalf("Expected ExRule %s to be RFC compliant", exrule)
+		}
+
+		if !dtWantTime.Equal(exrule.dtstart) {
+			t.Fatalf("Expected ExRule dtstart to be %v got %v", dtWantTime, exrule.dtstart)
+		}
+	}
+
+	dtstart := set.GetDTStart()
+	if dtstart.IsZero() {
+		t.Errorf("dtstart not set")
+	}
+
+	if !dtstart.Equal(dtWantTime) {
+		t.Errorf("dtstart time wrong should be %s but is %s", dtWantTime, dtstart)
+	}
+
+	assertRulesMatch(set, t)
+
+	dtWantAfter := time.Date(2018, 1, 2, 9, 0, 0, 0, nyLoc)
+	dtAfter := set.After(dtWantTime, false)
+	if !dtWantAfter.Equal(dtAfter) {
+		t.Errorf("Next time wrong should be %s but is %s", dtWantAfter, dtAfter)
+	}
+
+	// String to set to string comparison
+	setStr := set.String()
+	setFromSetStr, err := StrToRRuleSet(setStr)
+
+	if setStr != setFromSetStr.String() {
+		t.Errorf("Expected string output\n %s \nbut got\n %s\n", setStr, setFromSetStr.String())
+	}
+}
+
+// Helper for TestRFCSetStr and TestSetStr
+func assertRulesMatch(set *Set, t *testing.T) {
 	// matching parsed RRules
 	rRules := set.GetRRule()
 	if len(rRules) != 3 {

@@ -285,7 +285,7 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 			return nil, err
 		}
 
-		nameLen := strings.IndexAny(line, ";:")
+		nameLen := len(name)
 
 		switch name {
 		case "RRULE", "EXRULE":
@@ -360,13 +360,18 @@ func StrToDates(str string) (ts []time.Time, err error) {
 func processRRuleName(line string) (string, error) {
 	line = strings.ToUpper(strings.TrimSpace(line))
 	if line == "" {
-		return "", nil
-	}
-	nameLen := strings.IndexAny(line, ";:")
-	if nameLen < 0 {
 		return "", fmt.Errorf("bad format %v", line)
 	}
+
+	nameLen := strings.IndexAny(line, ";:")
+	if nameLen <= 0 {
+		return "", fmt.Errorf("bad format %v", line)
+	}
+
 	name := line[:nameLen]
+	if strings.IndexAny(name, "=") > 0 {
+		return "", fmt.Errorf("bad format %v", line)
+	}
 
 	return name, nil
 }
@@ -389,11 +394,8 @@ func strToDtStart(str string) (time.Time, error) {
 			return time.Time{}, fmt.Errorf("invalid timezone: %v", err.Error())
 		}
 		return strToTimeInLoc(tmp[1], loc)
-	}
-	if len(tmp) == 1 {
-		// no tzid
+	} else {
+		// no tzid, len == 1
 		return strToTime(tmp[0])
 	}
-
-	return time.Time{}, fmt.Errorf("impossible string")
 }

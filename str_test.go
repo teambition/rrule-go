@@ -59,6 +59,7 @@ func TestStr(t *testing.T) {
 func TestInvalidString(t *testing.T) {
 	cases := []string{
 		"",
+		"    ",
 		"FREQ",
 		"FREQ=HELLO",
 		"BYMONTH=",
@@ -107,7 +108,10 @@ func TestStrToDtStart(t *testing.T) {
 		"DTSTART:19970714T133000",
 		"DTSTART:19970714T133000Z",
 		"DTSTART;:19970714T133000Z",
+		"DTSTART;:1997:07:14T13:30:00Z",
 		";:19970714T133000Z",
+		"    ",
+		"",
 	}
 
 	for _, item := range validCases {
@@ -123,7 +127,78 @@ func TestStrToDtStart(t *testing.T) {
 	}
 }
 
+func TestStrToDates(t *testing.T) {
+	validCases := []string{
+		"19970714T133000",
+		"19970714T173000Z",
+		"VALUE=DATE-TIME:19970714T133000,19980714T133000,19980714T133000",
+	}
+
+	invalidCases := []string{
+		"VALUE:DATE:TIME:19970714T133000,19980714T133000,19980714T133000",
+		";:19970714T133000Z",
+		"    ",
+		"",
+	}
+
+	for _, item := range validCases {
+		if _, e := StrToDates(item); e != nil {
+			t.Errorf("StrToDates(%q) error = %s, want nil", item, e.Error())
+		}
+	}
+
+	for _, item := range invalidCases {
+		if _, e := StrToDates(item); e == nil {
+			t.Errorf("StrToDates(%q) err = nil, want not nil", item)
+		}
+	}
+}
+
+func TestProcessRRuleName(t *testing.T) {
+	validCases := []string{
+		"DTSTART;TZID=America/New_York:19970714T133000",
+		"RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU",
+		"EXRULE:FREQ=WEEKLY;INTERVAL=4;BYDAY=MO",
+		"EXDATE;VALUE=DATE-TIME:20180525T070000Z,20180530T130000Z",
+		"RDATE;VALUE=DATE-TIME:20180801T131313Z,20180902T141414Z",
+	}
+
+	invalidCases := []string{
+		"TZID=America/New_York:19970714T133000",
+		"19970714T1330000",
+		";:19970714T133000Z",
+		"FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU",
+		"    ",
+	}
+
+	for _, item := range validCases {
+		if _, e := processRRuleName(item); e != nil {
+			t.Errorf("processRRuleName(%q) error = %s, want nil", item, e.Error())
+		}
+	}
+
+	for _, item := range invalidCases {
+		if _, e := processRRuleName(item); e == nil {
+			t.Errorf("processRRuleName(%q) err = nil, want not nil", item)
+		}
+	}
+}
+
 func TestRFCSetStr(t *testing.T) {
+	badInputStrs := []string{
+		"",
+		"FREQ=DAILY;UNTIL=20180517T235959Z",
+		"DTSTART:;",
+		"RRULE:;",
+	}
+
+	for _, badInputStr := range badInputStrs {
+		_, err := StrToRRuleSet(badInputStr)
+		if err == nil {
+			t.Fatalf("StrToRRuleSet(%s) didn't return error", badInputStr)
+		}
+	}
+
 	inputStr := "DTSTART;TZID=America/New_York:20180101T090000\n" +
 		"RRULE:FREQ=DAILY;UNTIL=20180517T235959Z\n" +
 		"RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU\n" +

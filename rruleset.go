@@ -8,15 +8,20 @@ import (
 
 // Set allows more complex recurrence setups, mixing multiple rules, dates, exclusion rules, and exclusion dates
 type Set struct {
-	rrule  []*RRule
-	rdate  []time.Time
-	exrule []*RRule
-	exdate []time.Time
+	rrule   []*RRule
+	rdate   []time.Time
+	exrule  []*RRule
+	exdate  []time.Time
+	dtstart time.Time
 }
 
 // Recurrence returns a slice of all the recurrence rules for a set
 func (set *Set) Recurrence() []string {
-	res := []string{}
+	var res []string
+
+	if !set.dtstart.IsZero() {
+		res = append(res, fmt.Sprintf("DTSTART:%s", timeToDtStartStr(set.dtstart)))
+	}
 	for _, item := range set.rrule {
 		res = append(res, fmt.Sprintf("RRULE:%s", item))
 	}
@@ -30,6 +35,16 @@ func (set *Set) Recurrence() []string {
 		res = append(res, fmt.Sprintf("EXDATE:%s", timeToStr(item)))
 	}
 	return res
+}
+
+// DTStart sets dtstart property for all rules in set
+func (set *Set) DTStart(dtstart time.Time) {
+	set.dtstart = dtstart
+}
+
+// GetDTStart gets dtstart for set
+func (set *Set) GetDTStart() time.Time {
+	return set.dtstart
 }
 
 // RRule include the given rrule instance in the recurrence set generation.

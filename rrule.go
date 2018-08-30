@@ -104,6 +104,7 @@ type ROption struct {
 	Byminute   []int
 	Bysecond   []int
 	Byeaster   []int
+	RFC        bool
 }
 
 // RRule offers a small, complete, and very fast, implementation of the recurrence rules

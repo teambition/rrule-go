@@ -47,6 +47,49 @@ EXDATE:19970918T090000Z`
 	if want != value {
 		t.Errorf("get %v, want %v", value, want)
 	}
+
+	for _, rrule := range set.GetRRule() {
+		if rrule.OrigOptions.RFC {
+			t.Errorf("Expected rrule options to be RFC false, got true")
+		}
+	}
+}
+
+func TestSetRFCString(t *testing.T) {
+	set := Set{}
+	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU}, RFC: true,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	set.RRule(r)
+	r, _ = NewRRule(ROption{Freq: YEARLY, Count: 3, Byweekday: []Weekday{TH}, RFC: true,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	set.ExRule(r)
+	set.ExDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC))
+	set.ExDate(time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC))
+	set.ExDate(time.Date(1997, 9, 18, 9, 0, 0, 0, time.UTC))
+	set.RDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC))
+	set.RDate(time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC))
+
+	nyLoc, _ := time.LoadLocation("America/New_York")
+	set.DTStart(time.Date(1997, 9, 2, 9, 0, 0, 0, nyLoc))
+
+	for _, rrule := range set.GetRRule() {
+		if !rrule.OrigOptions.RFC {
+			t.Errorf("Expected rrule options to be RFC true, got false")
+		}
+	}
+
+	want := `DTSTART:TZID=America/New_York:19970902T090000
+RRULE:FREQ=YEARLY;COUNT=1;BYDAY=TU
+RDATE:19970904T090000Z
+RDATE:19970909T090000Z
+EXRULE:FREQ=YEARLY;COUNT=3;BYDAY=TH
+EXDATE:19970904T090000Z
+EXDATE:19970911T090000Z
+EXDATE:19970918T090000Z`
+	value := set.String()
+	if want != value {
+		t.Errorf("get \n%v\n want \n%v\n", value, want)
+	}
 }
 
 func TestSetRecurrence(t *testing.T) {

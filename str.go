@@ -345,10 +345,10 @@ func StrToDates(str string) (ts []time.Time, err error) {
 			if strings.HasPrefix(param, "TZID=") {
 				loc, err = parseTZID(param)
 			} else if param != "VALUE=DATE-TIME" {
-				err = fmt.Errorf("unsupported RDATE/EXDATE parm: %v", param)
+				err = fmt.Errorf("unsupported: %v", param)
 			}
 			if err != nil {
-				return
+				return nil, fmt.Errorf("bad dates param: %s", err.Error())
 			}
 		}
 		tmp = tmp[1:]

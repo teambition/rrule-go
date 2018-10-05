@@ -329,25 +329,37 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 	return &set, nil
 }
 
-// StrToDates accepts string with format: "VALUE=DATE-TIME:{time},{time},...,{time}"
+// StrToDates is inteded to parse RDATE and EXDATE properties supporting only
+// VALUE=DATE-TIME (DATE and PERIOD are not supported).
+// Accepts string with format: "VALUE=DATE-TIME;[TZID=...]:{time},{time},...,{time}"
 // or simply "{time},{time},...{time}" and parses it to array of dates
-// may be used to parse RDATE/EXDATE rules
 func StrToDates(str string) (ts []time.Time, err error) {
 	tmp := strings.Split(str, ":")
 	if len(tmp) > 2 {
 		return nil, fmt.Errorf("bad format")
 	}
+	var loc *time.Location
 	if len(tmp) == 2 {
 		params := strings.Split(tmp[0], ";")
 		for _, param := range params {
-			if param != "VALUE=DATE-TIME" {
-				return nil, fmt.Errorf("unsupported RDATE/EXDATE parm: %v", param)
+			if strings.HasPrefix(param, "TZID=") {
+				loc, err = parseTZID(param)
+			} else if param != "VALUE=DATE-TIME" {
+				err = fmt.Errorf("unsupported: %v", param)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("bad dates param: %s", err.Error())
 			}
 		}
 		tmp = tmp[1:]
 	}
 	for _, datestr := range strings.Split(tmp[0], ",") {
-		t, err := strToTime(datestr)
+		var t time.Time
+		if loc == nil {
+			t, err = strToTime(datestr)
+		} else {
+			t, err = strToTimeInLoc(datestr, loc)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("strToTime failed: %v", err)
 		}
@@ -383,19 +395,22 @@ func strToDtStart(str string) (time.Time, error) {
 	if len(tmp) > 2 || len(tmp) == 0 {
 		return time.Time{}, fmt.Errorf("bad format")
 	}
+
 	if len(tmp) == 2 {
 		// tzid
-		tzStr := strings.Split(tmp[0], "=")
-		if tzStr[0] != "TZID" || len(tzStr[1]) < 1 {
-			return time.Time{}, fmt.Errorf("bad parameter format")
-		}
-		loc, err := time.LoadLocation(tzStr[1])
+		loc, err := parseTZID(tmp[0])
 		if err != nil {
-			return time.Time{}, fmt.Errorf("invalid timezone: %v", err.Error())
+			return time.Time{}, err
 		}
 		return strToTimeInLoc(tmp[1], loc)
-	} else {
-		// no tzid, len == 1
-		return strToTime(tmp[0])
 	}
+	// no tzid, len == 1
+	return strToTime(tmp[0])
+}
+
+func parseTZID(s string) (*time.Location, error) {
+	if !strings.HasPrefix(s, "TZID=") || len(s) == len("TZID=") {
+		return nil, fmt.Errorf("bad TZID parameter format")
+	}
+	return time.LoadLocation(s[len("TZID="):])
 }

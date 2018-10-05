@@ -132,6 +132,7 @@ func TestStrToDates(t *testing.T) {
 		"19970714T133000",
 		"19970714T173000Z",
 		"VALUE=DATE-TIME:19970714T133000,19980714T133000,19980714T133000",
+		"VALUE=DATE-TIME;TZID=America/New_York:19970714T133000,19980714T133000,19980714T133000",
 	}
 
 	invalidCases := []string{
@@ -139,6 +140,7 @@ func TestStrToDates(t *testing.T) {
 		";:19970714T133000Z",
 		"    ",
 		"",
+		"VALUE=DATE-TIME;TZID=:19970714T133000",
 	}
 
 	for _, item := range validCases {
@@ -154,13 +156,38 @@ func TestStrToDates(t *testing.T) {
 	}
 }
 
+func TestStrToDatesTimeIsCorrect(t *testing.T) {
+	nyLoc, _ := time.LoadLocation("America/New_York")
+	inputs := []string{
+		"VALUE=DATE-TIME:19970714T133000",
+		"VALUE=DATE-TIME;TZID=America/New_York:19970714T133000",
+	}
+	exp := []time.Time{
+		time.Date(1997, 7, 14, 13, 30, 0, 0, time.UTC),
+		time.Date(1997, 7, 14, 13, 30, 0, 0, nyLoc),
+	}
+
+	for i, s := range inputs {
+		ts, err := StrToDates(s)
+		if err != nil {
+			t.Fatalf("StrToDates(%s): error = %s", s, err.Error())
+		}
+		if len(ts) != 1 {
+			t.Fatalf("StrToDates(%s): bad answer: %v", s, ts)
+		}
+		if !ts[0].Equal(exp[i]) {
+			t.Fatalf("StrToDates(%s): bad answer: %v, expected: %v", s, ts[0], exp[i])
+		}
+	}
+}
+
 func TestProcessRRuleName(t *testing.T) {
 	validCases := []string{
 		"DTSTART;TZID=America/New_York:19970714T133000",
 		"RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU",
 		"EXRULE:FREQ=WEEKLY;INTERVAL=4;BYDAY=MO",
 		"EXDATE;VALUE=DATE-TIME:20180525T070000Z,20180530T130000Z",
-		"RDATE;VALUE=DATE-TIME:20180801T131313Z,20180902T141414Z",
+		"RDATE;TZID=America/New_York;VALUE=DATE-TIME:20180801T131313Z,20180902T141414Z",
 	}
 
 	invalidCases := []string{

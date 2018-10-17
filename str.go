@@ -219,6 +219,8 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 			result.Bysecond, e = strToInts(value)
 		case "BYEASTER":
 			result.Byeaster, e = strToInts(value)
+		case "TZID":
+			result.Dtstart, e = strToDtStart(key + "=" + value)
 		default:
 			return nil, errors.New("unknown RRULE property: " + key)
 		}

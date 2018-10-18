@@ -259,6 +259,10 @@ func StrToRRuleSet(s string) (*Set, error) {
 
 // StrSliceToRRuleSet converts given str slice to RRuleSet
 func StrSliceToRRuleSet(ss []string) (*Set, error) {
+	if len(ss) == 0 {
+		return &Set{}, nil
+	}
+
 	set := Set{}
 
 	// According to RFC DTSTART is always the first line.

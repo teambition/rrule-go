@@ -25,10 +25,6 @@ func timeToDtStartStr(time time.Time) string {
 	return fmt.Sprintf("TZID=%s:%s", time.Location().String(), time.Format(LocalDateTimeFormat))
 }
 
-func strToTime(str string) (time.Time, error) {
-	return strToTimeInLoc(str, time.UTC)
-}
-
 func strToTimeInLoc(str string, loc *time.Location) (time.Time, error) {
 	if len(str) == len(DateFormat) {
 		return time.ParseInLocation(DateFormat, str, loc)
@@ -280,7 +276,7 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 	}
 
 	if firstName == "DTSTART" {
-		dt, err := strToDtStart(ss[0][len(firstName)+1:])
+		dt, err := strToDtStart(ss[0][len(firstName)+1:], defaultLoc)
 		if err != nil {
 			return nil, fmt.Errorf("strToDtStart failed: %v", err)
 		}
@@ -401,7 +397,7 @@ func processRRuleName(line string) (string, error) {
 
 // strToDtStart accepts string with format: "(TZID={timezone}:)?{time}" and parses it to a date
 // may be used to parse DTSTART rules, without the DTSTART; part.
-func strToDtStart(str string) (time.Time, error) {
+func strToDtStart(str string, defaultLoc *time.Location) (time.Time, error) {
 	tmp := strings.Split(str, ":")
 	if len(tmp) > 2 || len(tmp) == 0 {
 		return time.Time{}, fmt.Errorf("bad format")
@@ -416,7 +412,7 @@ func strToDtStart(str string) (time.Time, error) {
 		return strToTimeInLoc(tmp[1], loc)
 	}
 	// no tzid, len == 1
-	return strToTime(tmp[0])
+	return strToTimeInLoc(tmp[0], defaultLoc)
 }
 
 func parseTZID(s string) (*time.Location, error) {

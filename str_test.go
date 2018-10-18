@@ -115,13 +115,13 @@ func TestStrToDtStart(t *testing.T) {
 	}
 
 	for _, item := range validCases {
-		if _, e := strToDtStart(item); e != nil {
+		if _, e := strToDtStart(item, time.UTC); e != nil {
 			t.Errorf("strToDtStart(%q) error = %s, want nil", item, e.Error())
 		}
 	}
 
 	for _, item := range invalidCases {
-		if _, e := strToDtStart(item); e == nil {
+		if _, e := strToDtStart(item, time.UTC); e == nil {
 			t.Errorf("strToDtStart(%q) err = nil, want not nil", item)
 		}
 	}

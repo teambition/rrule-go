@@ -353,6 +353,19 @@ func TestStrSetEmptySliceParse(t *testing.T) {
 	}
 }
 
+func TestStrSetParseErrors(t *testing.T) {
+	inputs := [][]string{
+		{"RULE:XXX"},
+		{"RDATE;TZD=X:1"},
+	}
+
+	for _, ss := range inputs {
+		if _, err := StrSliceToRRuleSet(ss); err == nil {
+			t.Error("Expected parse error for rules: ", ss)
+		}
+	}
+}
+
 // Helper for TestRFCSetStr and TestSetStr
 func assertRulesMatch(set *Set, t *testing.T) {
 	// matching parsed RRules

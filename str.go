@@ -268,8 +268,7 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 	}
 
 	if firstName == "DTSTART" {
-		nameLen := strings.IndexAny(ss[0], ";:")
-		dt, err := strToDtStart(ss[0][nameLen+1:])
+		dt, err := strToDtStart(ss[0][len(firstName)+1:])
 		if err != nil {
 			return nil, fmt.Errorf("strToDtStart failed: %v", err)
 		}

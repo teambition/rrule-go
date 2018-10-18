@@ -133,6 +133,7 @@ func TestStrToDates(t *testing.T) {
 		"19970714T173000Z",
 		"VALUE=DATE-TIME:19970714T133000,19980714T133000,19980714T133000",
 		"VALUE=DATE-TIME;TZID=America/New_York:19970714T133000,19980714T133000,19980714T133000",
+		"VALUE=DATE:19970714T133000,19980714T133000,19980714T133000",
 	}
 
 	invalidCases := []string{
@@ -141,16 +142,23 @@ func TestStrToDates(t *testing.T) {
 		"    ",
 		"",
 		"VALUE=DATE-TIME;TZID=:19970714T133000",
+		"VALUE=PERIOD:19970714T133000Z/19980714T133000Z",
 	}
 
 	for _, item := range validCases {
 		if _, e := StrToDates(item); e != nil {
 			t.Errorf("StrToDates(%q) error = %s, want nil", item, e.Error())
 		}
+		if _, e := StrToDatesInLoc(item, time.Local); e != nil {
+			t.Errorf("StrToDates(%q) error = %s, want nil", item, e.Error())
+		}
 	}
 
 	for _, item := range invalidCases {
 		if _, e := StrToDates(item); e == nil {
+			t.Errorf("StrToDates(%q) err = nil, want not nil", item)
+		}
+		if _, e := StrToDatesInLoc(item, time.Local); e == nil {
 			t.Errorf("StrToDates(%q) err = nil, want not nil", item)
 		}
 	}

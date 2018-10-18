@@ -278,29 +278,24 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 	}
 
 	for _, line := range ss {
-
 		name, err := processRRuleName(line)
 		if err != nil {
 			return nil, err
 		}
-
-		nameLen := len(name)
+		rule := line[len(name)+1:]
 
 		switch name {
 		case "RRULE", "EXRULE":
-			r, err := StrToRRule(line[nameLen+1:])
-
+			rOpt, err := StrToROption(rule)
 			if err != nil {
-				return nil, fmt.Errorf("strToRRule failed: %v", err)
+				return nil, fmt.Errorf("StrToROption failed: %v", err)
 			}
-
 			if !set.GetDTStart().IsZero() {
-				opt := r.OrigOptions
-				opt.Dtstart = set.GetDTStart()
-				r, err = NewRRule(opt)
-				if err != nil {
-					return nil, fmt.Errorf("could not add dtstart to rule: %v", r)
-				}
+				rOpt.Dtstart = set.GetDTStart()
+			}
+			r, err := NewRRule(*rOpt)
+			if err != nil {
+				return nil, fmt.Errorf("NewRRule failed: %v", r)
 			}
 
 			if name == "RRULE" {
@@ -309,7 +304,7 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 				set.ExRule(r)
 			}
 		case "RDATE", "EXDATE":
-			ts, err := StrToDates(line[nameLen+1:])
+			ts, err := StrToDates(rule)
 			if err != nil {
 				return nil, fmt.Errorf("strToDates failed: %v", err)
 			}

@@ -343,6 +343,16 @@ func TestRDateValueDateStr(t *testing.T) {
 	}
 }
 
+func TestStrSetEmptySliceParse(t *testing.T) {
+	s, err := StrSliceToRRuleSet([]string{})
+	if err != nil {
+		t.Error(err)
+	}
+	if s == nil {
+		t.Error("Empty set should not be nil")
+	}
+}
+
 // Helper for TestRFCSetStr and TestSetStr
 func assertRulesMatch(set *Set, t *testing.T) {
 	// matching parsed RRules

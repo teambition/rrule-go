@@ -329,7 +329,7 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 	return &set, nil
 }
 
-// StrToDates is inteded to parse RDATE and EXDATE properties supporting only
+// StrToDates is intended to parse RDATE and EXDATE properties supporting only
 // VALUE=DATE-TIME (DATE and PERIOD are not supported).
 // Accepts string with format: "VALUE=DATE-TIME;[TZID=...]:{time},{time},...,{time}"
 // or simply "{time},{time},...{time}" and parses it to array of dates

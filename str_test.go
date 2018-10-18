@@ -288,6 +288,39 @@ func TestRFCSetStr(t *testing.T) {
 	}
 }
 
+func TestSetParseLocalTimes(t *testing.T) {
+	moscow, _ := time.LoadLocation("Europe/Moscow")
+
+	t.Run("DtstartTimeZoneIsUsed", func(t *testing.T) {
+		input := []string{
+			"DTSTART;TZID=Europe/Moscow:20180220T090000",
+			"RDATE;VALUE=DATE-TIME:20180223T100000",
+		}
+		s, err := StrSliceToRRuleSet(input)
+		if err != nil {
+			t.Error(err)
+		}
+		d := s.GetRDate()[0]
+		if !d.Equal(time.Date(2018, 02, 23, 10, 0, 0, 0, moscow)) {
+			t.Error("Bad time parsed: ", d)
+		}
+	})
+
+	t.Run("SpecifiedDefaultZoneIsUsed", func(t *testing.T) {
+		input := []string{
+			"RDATE;VALUE=DATE-TIME:20180223T100000",
+		}
+		s, err := StrSliceToRRuleSetInLoc(input, moscow)
+		if err != nil {
+			t.Error(err)
+		}
+		d := s.GetRDate()[0]
+		if !d.Equal(time.Date(2018, 02, 23, 10, 0, 0, 0, moscow)) {
+			t.Error("Bad time parsed: ", d)
+		}
+	})
+}
+
 // Helper for TestRFCSetStr and TestSetStr
 func assertRulesMatch(set *Set, t *testing.T) {
 	// matching parsed RRules

@@ -258,7 +258,15 @@ func StrToRRuleSet(s string) (*Set, error) {
 }
 
 // StrSliceToRRuleSet converts given str slice to RRuleSet
+// In case there is a time met in any rule without specified time zone, when
+// it is parsed in UTC (see StrSliceToRRuleSetInLoc)
 func StrSliceToRRuleSet(ss []string) (*Set, error) {
+	return StrSliceToRRuleSetInLoc(ss, time.UTC)
+}
+
+// StrSliceToRRuleSetInLoc is same as StrSliceToRRuleSet, but by default parses local times
+// in specified default location
+func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, error) {
 	if len(ss) == 0 {
 		return &Set{}, nil
 	}
@@ -276,6 +284,9 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 		if err != nil {
 			return nil, fmt.Errorf("strToDtStart failed: %v", err)
 		}
+		// default location should be taken from DTSTART property to correctly
+		// parse local times met in RDATE,EXDATE and other rules
+		defaultLoc = dt.Location()
 		set.DTStart(dt)
 		// We've processed the first one
 		ss = ss[1:]
@@ -308,7 +319,7 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 				set.ExRule(r)
 			}
 		case "RDATE", "EXDATE":
-			ts, err := StrToDates(rule)
+			ts, err := StrToDatesInLoc(rule, defaultLoc)
 			if err != nil {
 				return nil, fmt.Errorf("strToDates failed: %v", err)
 			}
@@ -331,12 +342,19 @@ func StrSliceToRRuleSet(ss []string) (*Set, error) {
 // VALUE=DATE-TIME (DATE and PERIOD are not supported).
 // Accepts string with format: "VALUE=DATE-TIME;[TZID=...]:{time},{time},...,{time}"
 // or simply "{time},{time},...{time}" and parses it to array of dates
+// In case no time zone specified in str, when all dates are parsed in UTC
 func StrToDates(str string) (ts []time.Time, err error) {
+	return StrToDatesInLoc(str, time.UTC)
+}
+
+// StrToDatesInLoc same as StrToDates but it consideres default location to parse dates in
+// in case no location specified with TZID parameter
+func StrToDatesInLoc(str string, defaultLoc *time.Location) (ts []time.Time, err error) {
 	tmp := strings.Split(str, ":")
 	if len(tmp) > 2 {
 		return nil, fmt.Errorf("bad format")
 	}
-	var loc *time.Location
+	loc := defaultLoc
 	if len(tmp) == 2 {
 		params := strings.Split(tmp[0], ";")
 		for _, param := range params {
@@ -352,12 +370,7 @@ func StrToDates(str string) (ts []time.Time, err error) {
 		tmp = tmp[1:]
 	}
 	for _, datestr := range strings.Split(tmp[0], ",") {
-		var t time.Time
-		if loc == nil {
-			t, err = strToTime(datestr)
-		} else {
-			t, err = strToTimeInLoc(datestr, loc)
-		}
+		t, err := strToTimeInLoc(datestr, loc)
 		if err != nil {
 			return nil, fmt.Errorf("strToTime failed: %v", err)
 		}

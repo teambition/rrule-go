@@ -321,6 +321,20 @@ func TestSetParseLocalTimes(t *testing.T) {
 	})
 }
 
+func TestRDateValueDateStr(t *testing.T) {
+	input := []string{
+		"RDATE;VALUE=DATE:20180223",
+	}
+	s, err := StrSliceToRRuleSet(input)
+	if err != nil {
+		t.Error(err)
+	}
+	d := s.GetRDate()[0]
+	if !d.Equal(time.Date(2018, 02, 23, 0, 0, 0, 0, time.UTC)) {
+		t.Error("Bad time parsed: ", d)
+	}
+}
+
 // Helper for TestRFCSetStr and TestSetStr
 func assertRulesMatch(set *Set, t *testing.T) {
 	// matching parsed RRules

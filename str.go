@@ -360,7 +360,7 @@ func StrToDatesInLoc(str string, defaultLoc *time.Location) (ts []time.Time, err
 		for _, param := range params {
 			if strings.HasPrefix(param, "TZID=") {
 				loc, err = parseTZID(param)
-			} else if param != "VALUE=DATE-TIME" {
+			} else if param != "VALUE=DATE-TIME" && param != "VALUE=DATE" {
 				err = fmt.Errorf("unsupported: %v", param)
 			}
 			if err != nil {

@@ -115,13 +115,13 @@ func TestStrToDtStart(t *testing.T) {
 	}
 
 	for _, item := range validCases {
-		if _, e := strToDtStart(item); e != nil {
+		if _, e := strToDtStart(item, time.UTC); e != nil {
 			t.Errorf("strToDtStart(%q) error = %s, want nil", item, e.Error())
 		}
 	}
 
 	for _, item := range invalidCases {
-		if _, e := strToDtStart(item); e == nil {
+		if _, e := strToDtStart(item, time.UTC); e == nil {
 			t.Errorf("strToDtStart(%q) err = nil, want not nil", item)
 		}
 	}
@@ -133,6 +133,7 @@ func TestStrToDates(t *testing.T) {
 		"19970714T173000Z",
 		"VALUE=DATE-TIME:19970714T133000,19980714T133000,19980714T133000",
 		"VALUE=DATE-TIME;TZID=America/New_York:19970714T133000,19980714T133000,19980714T133000",
+		"VALUE=DATE:19970714T133000,19980714T133000,19980714T133000",
 	}
 
 	invalidCases := []string{
@@ -141,16 +142,23 @@ func TestStrToDates(t *testing.T) {
 		"    ",
 		"",
 		"VALUE=DATE-TIME;TZID=:19970714T133000",
+		"VALUE=PERIOD:19970714T133000Z/19980714T133000Z",
 	}
 
 	for _, item := range validCases {
 		if _, e := StrToDates(item); e != nil {
 			t.Errorf("StrToDates(%q) error = %s, want nil", item, e.Error())
 		}
+		if _, e := StrToDatesInLoc(item, time.Local); e != nil {
+			t.Errorf("StrToDates(%q) error = %s, want nil", item, e.Error())
+		}
 	}
 
 	for _, item := range invalidCases {
 		if _, e := StrToDates(item); e == nil {
+			t.Errorf("StrToDates(%q) err = nil, want not nil", item)
+		}
+		if _, e := StrToDatesInLoc(item, time.Local); e == nil {
 			t.Errorf("StrToDates(%q) err = nil, want not nil", item)
 		}
 	}
@@ -285,6 +293,76 @@ func TestRFCSetStr(t *testing.T) {
 
 	if setStr != setFromSetStr.String() {
 		t.Errorf("Expected string output\n %s \nbut got\n %s\n", setStr, setFromSetStr.String())
+	}
+}
+
+func TestSetParseLocalTimes(t *testing.T) {
+	moscow, _ := time.LoadLocation("Europe/Moscow")
+
+	t.Run("DtstartTimeZoneIsUsed", func(t *testing.T) {
+		input := []string{
+			"DTSTART;TZID=Europe/Moscow:20180220T090000",
+			"RDATE;VALUE=DATE-TIME:20180223T100000",
+		}
+		s, err := StrSliceToRRuleSet(input)
+		if err != nil {
+			t.Error(err)
+		}
+		d := s.GetRDate()[0]
+		if !d.Equal(time.Date(2018, 02, 23, 10, 0, 0, 0, moscow)) {
+			t.Error("Bad time parsed: ", d)
+		}
+	})
+
+	t.Run("SpecifiedDefaultZoneIsUsed", func(t *testing.T) {
+		input := []string{
+			"RDATE;VALUE=DATE-TIME:20180223T100000",
+		}
+		s, err := StrSliceToRRuleSetInLoc(input, moscow)
+		if err != nil {
+			t.Error(err)
+		}
+		d := s.GetRDate()[0]
+		if !d.Equal(time.Date(2018, 02, 23, 10, 0, 0, 0, moscow)) {
+			t.Error("Bad time parsed: ", d)
+		}
+	})
+}
+
+func TestRDateValueDateStr(t *testing.T) {
+	input := []string{
+		"RDATE;VALUE=DATE:20180223",
+	}
+	s, err := StrSliceToRRuleSet(input)
+	if err != nil {
+		t.Error(err)
+	}
+	d := s.GetRDate()[0]
+	if !d.Equal(time.Date(2018, 02, 23, 0, 0, 0, 0, time.UTC)) {
+		t.Error("Bad time parsed: ", d)
+	}
+}
+
+func TestStrSetEmptySliceParse(t *testing.T) {
+	s, err := StrSliceToRRuleSet([]string{})
+	if err != nil {
+		t.Error(err)
+	}
+	if s == nil {
+		t.Error("Empty set should not be nil")
+	}
+}
+
+func TestStrSetParseErrors(t *testing.T) {
+	inputs := [][]string{
+		{"RULE:XXX"},
+		{"RDATE;TZD=X:1"},
+	}
+
+	for _, ss := range inputs {
+		if _, err := StrSliceToRRuleSet(ss); err == nil {
+			t.Error("Expected parse error for rules: ", ss)
+		}
 	}
 }
 

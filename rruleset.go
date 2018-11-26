@@ -53,6 +53,7 @@ func (set *Set) GetDTStart() time.Time {
 
 // RRule include the given rrule instance in the recurrence set generation.
 func (set *Set) RRule(rrule *RRule) {
+	rrule.dtstart = set.dtstart
 	set.rrule = append(set.rrule, rrule)
 }
 
@@ -75,6 +76,7 @@ func (set *Set) GetRDate() []time.Time {
 // Dates which are part of the given recurrence rules will not be generated,
 // even if some inclusive rrule or rdate matches them.
 func (set *Set) ExRule(exrule *RRule) {
+	exrule.dtstart = set.dtstart
 	set.exrule = append(set.exrule, exrule)
 }
 

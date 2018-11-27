@@ -314,3 +314,22 @@ func TestSetTrickyTimeZones(t *testing.T) {
 		t.Errorf("No all occurrences excluded by ExDate: [%+v]", occurrences)
 	}
 }
+
+func TestSetDtStart(t *testing.T) {
+	ogr := []string{"DTSTART;TZID=America/Los_Angeles:20181115T000000", "RRULE:FREQ=DAILY;INTERVAL=1;WKST=SU;UNTIL=20181117T235959"}
+	set, _ := StrSliceToRRuleSet(ogr)
+
+	ogoc := set.All()
+	set.DTStart(set.GetDTStart().AddDate(0, 0, 1))
+
+	noc := set.All()
+	if len(noc) != len(ogoc)-1 {
+		t.Fatalf("As per the new DTStart the new occurences should exactly be one less that the original, new :%d original: %d", len(noc), len(ogoc))
+	}
+
+	for i := range noc {
+		if noc[i] != ogoc[i+1] {
+			t.Errorf("New occurences should just offset by one, mismatch at %d, expected: %+v, actual: %+v", i, ogoc[i+1], noc[i])
+		}
+	}
+}

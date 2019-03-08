@@ -212,16 +212,10 @@ func NewRRule(arg ROption) (*RRule, error) {
 	} else {
 		r.bysecond = arg.Bysecond
 	}
-	if r.freq < HOURLY {
-		for _, hour := range r.byhour {
-			for _, minute := range r.byminute {
-				for _, second := range r.bysecond {
-					r.timeset = append(r.timeset, time.Date(1, 1, 1, hour, minute, second, 0, r.dtstart.Location()))
-				}
-			}
-		}
-		sort.Sort(timeSlice(r.timeset))
-	}
+
+	// Calculate the timeset if needed
+	r.calculateTimeset()
+
 	return &r, nil
 }
 
@@ -786,4 +780,29 @@ func (r *RRule) Before(dt time.Time, inc bool) time.Time {
 // With inc == True, if dt itself is an occurrence, it will be returned.
 func (r *RRule) After(dt time.Time, inc bool) time.Time {
 	return after(r.Iterator(), dt, inc)
+}
+
+// DTStart set a new DTStart for the rule and recalculates the timeset if needed.
+func (r *RRule) DTStart(dt time.Time) {
+	r.dtstart = dt
+
+	// Calculate the timeset if needed
+	r.calculateTimeset()
+}
+
+// calculateTimeset calculates the timeset if needed.
+func (r *RRule) calculateTimeset() {
+	// Reset the timeset value
+	r.timeset = []time.Time{}
+
+	if r.freq < HOURLY {
+		for _, hour := range r.byhour {
+			for _, minute := range r.byminute {
+				for _, second := range r.bysecond {
+					r.timeset = append(r.timeset, time.Date(1, 1, 1, hour, minute, second, 0, r.dtstart.Location()))
+				}
+			}
+		}
+		sort.Sort(timeSlice(r.timeset))
+	}
 }

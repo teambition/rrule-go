@@ -3689,3 +3689,45 @@ func TestWeekdayGetters(t *testing.T) {
 		t.Errorf("Day index getter is wrong")
 	}
 }
+
+func TestRuleChangeDTStartTimezoneRespected(t *testing.T) {
+	/*
+		https://golang.org/pkg/time/#LoadLocation
+
+		"The time zone database needed by LoadLocation may not be present on all systems, especially non-Unix systems.
+		LoadLocation looks in the directory or uncompressed zip file named by the ZONEINFO environment variable,
+		if any, then looks in known installation locations on Unix systems, and finally looks in
+		$GOROOT/lib/time/zoneinfo.zip."
+	*/
+	loc, err := time.LoadLocation("CET")
+	if err != nil {
+		t.Fatal("expected", nil, "got", err)
+	}
+
+	rule, err := NewRRule(
+		ROption{
+			Freq:     DAILY,
+			Count:    10,
+			Wkst:     MO,
+			Byhour:   []int{10},
+			Byminute: []int{0},
+			Bysecond: []int{0},
+			Dtstart:  time.Date(2019, 3, 6, 0, 0, 0, 0, loc),
+		},
+	)
+	if err != nil {
+		t.Fatal("expected", nil, "got", err)
+	}
+	rule.DTStart(time.Date(2019, 3, 6, 0, 0, 0, 0, time.UTC))
+
+	events := rule.All()
+	if len(events) != 10 {
+		t.Fatal("expected", 10, "got", len(events))
+	}
+
+	for _, e := range events {
+		if e.Location().String() != "UTC" {
+			t.Fatal("expected", "UTC", "got", e.Location().String())
+		}
+	}
+}

@@ -41,7 +41,11 @@ func (set *Set) Recurrence() []string {
 func (set *Set) DTStart(dtstart time.Time) {
 	set.dtstart = dtstart
 
-	for _, r := range append(set.rrule, set.exrule...) {
+	for _, r := range set.rrule {
+		r.DTStart(set.dtstart)
+	}
+
+	for _, r := range set.exrule {
 		r.DTStart(set.dtstart)
 	}
 }
@@ -53,6 +57,9 @@ func (set *Set) GetDTStart() time.Time {
 
 // RRule include the given rrule instance in the recurrence set generation.
 func (set *Set) RRule(rrule *RRule) {
+	if !set.dtstart.IsZero() {
+		rrule.DTStart(set.dtstart)
+	}
 	set.rrule = append(set.rrule, rrule)
 }
 
@@ -75,6 +82,9 @@ func (set *Set) GetRDate() []time.Time {
 // Dates which are part of the given recurrence rules will not be generated,
 // even if some inclusive rrule or rdate matches them.
 func (set *Set) ExRule(exrule *RRule) {
+	if !set.dtstart.IsZero() {
+		exrule.DTStart(set.dtstart)
+	}
 	set.exrule = append(set.exrule, exrule)
 }
 

@@ -3594,6 +3594,22 @@ func TestDTStartWithMicroseconds(t *testing.T) {
 	}
 }
 
+func TestUntil(t *testing.T) {
+	r1, _ := NewRRule(ROption{Freq: DAILY,
+		Dtstart: time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC)})
+	r1.Until(time.Date(1998, 9, 2, 0, 0, 0, 0, time.UTC))
+
+	r2, _ := NewRRule(ROption{Freq: DAILY,
+		Dtstart: time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC),
+		Until:   time.Date(1998, 9, 2, 0, 0, 0, 0, time.UTC)})
+
+	v1 := r1.All()
+	v2 := r2.All()
+	if !timesEqual(v1, v2) {
+		t.Errorf("get %v, want %v", v1, v2)
+	}
+}
+
 func TestMaxYear(t *testing.T) {
 	r, _ := NewRRule(ROption{Freq: YEARLY,
 		Count:      3,
@@ -3677,6 +3693,21 @@ func TestBetweenInc(t *testing.T) {
 	value := r.Between(time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC), time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC), true)
 	if !timesEqual(value, want) {
 		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestAllWithDefaultUtil(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+
+	value := r.All()
+	if len(value) > 300 || len(value) < 200 {
+		t.Errorf("No default Util time")
+	}
+
+	r, _ = NewRRule(ROption{Freq: YEARLY})
+	if len(r.All()) != len(value) {
+		t.Errorf("No default Util time")
 	}
 }
 

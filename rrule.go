@@ -111,6 +111,7 @@ type ROption struct {
 // documented in the iCalendar RFC, including support for caching of results.
 type RRule struct {
 	OrigOptions             ROption
+	Options                 ROption
 	freq                    Frequency
 	dtstart                 time.Time
 	interval                int
@@ -148,6 +149,10 @@ func NewRRule(arg ROption) (*RRule, error) {
 		r.interval = arg.Interval
 	}
 	r.count = arg.Count
+	if arg.Until.IsZero() {
+		// add largest representable duration (approximately 290 years).
+		arg.Until = arg.Dtstart.Add(time.Duration(1<<63 - 1))
+	}
 	r.until = arg.Until
 	r.wkst = arg.Wkst.weekday
 	for _, pos := range arg.Bysetpos {
@@ -213,6 +218,7 @@ func NewRRule(arg ROption) (*RRule, error) {
 		r.bysecond = arg.Bysecond
 	}
 
+	r.Options = arg
 	// Calculate the timeset if needed
 	r.calculateTimeset()
 
@@ -788,6 +794,11 @@ func (r *RRule) DTStart(dt time.Time) {
 
 	// Calculate the timeset if needed
 	r.calculateTimeset()
+}
+
+// Until set a new Until for the rule and recalculates the timeset if needed.
+func (r *RRule) Until(ut time.Time) {
+	r.until = ut
 }
 
 // calculateTimeset calculates the timeset if needed.

@@ -3608,6 +3608,14 @@ func TestUntil(t *testing.T) {
 	if !timesEqual(v1, v2) {
 		t.Errorf("get %v, want %v", v1, v2)
 	}
+
+	r3, _ := NewRRule(ROption{Freq: MONTHLY,
+		Dtstart: time.Date(MAXYEAR-100, 1, 1, 0, 0, 0, 0, time.UTC)})
+	r3.Until(time.Date(MAXYEAR+100, 1, 1, 0, 0, 0, 0, time.UTC))
+	v3 := r3.All()
+	if len(v3) != 101*12 {
+		t.Errorf("get %v, want %v", len(v3), 101*12)
+	}
 }
 
 func TestMaxYear(t *testing.T) {

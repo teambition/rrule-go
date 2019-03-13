@@ -22,6 +22,22 @@ func TestSet(t *testing.T) {
 	}
 }
 
+func TestSetOverlapping(t *testing.T) {
+	set := Set{}
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	set.RRule(r)
+	v1 := set.All()
+	if len(v1) > 300 || len(v1) < 200 {
+		t.Errorf("No default Util time")
+	}
+	set.ExRule(r)
+	v2 := set.All()
+	if len(v2) != 0 {
+		t.Errorf("Should no values when RRule and ExRule overlapping")
+	}
+}
+
 func TestSetString(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},

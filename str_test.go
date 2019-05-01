@@ -1,6 +1,7 @@
 package rrule
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -34,7 +35,7 @@ func TestRFCSetToString(t *testing.T) {
 		t.Errorf("Expected RFC string FREQ=MONTHLY, got %v", r.String())
 	}
 
-	expectedSetStr := "DTSTART:TZID=America/New_York:20180101T090000\n" + "RRULE:FREQ=MONTHLY"
+	expectedSetStr := "DTSTART;TZID=America/New_York:20180101T090000\n" + "RRULE:FREQ=MONTHLY"
 
 	set := Set{}
 	set.RRule(r)
@@ -311,6 +312,42 @@ func TestSetParseLocalTimes(t *testing.T) {
 		d := s.GetRDate()[0]
 		if !d.Equal(time.Date(2018, 02, 23, 10, 0, 0, 0, moscow)) {
 			t.Error("Bad time parsed: ", d)
+		}
+	})
+
+	t.Run("DtstartTimeZoneValidOutput", func(t *testing.T) {
+		input := []string{
+			"DTSTART;TZID=Europe/Moscow:20180220T090000",
+			"RDATE;VALUE=DATE-TIME:20180223T100000",
+		}
+		expected := "DTSTART;TZID=Europe/Moscow:20180220T090000\nRDATE:20180223T070000Z"
+		s, err := StrSliceToRRuleSet(input)
+		if err != nil {
+			t.Error(err)
+		}
+
+		sRRule := s.String()
+
+		if sRRule != expected {
+			t.Error(fmt.Sprintf("DTSTART output not valid. Expected: \n%s \n Got: \n%s", expected, sRRule))
+		}
+	})
+
+	t.Run("DtstartUTCValidOutput", func(t *testing.T) {
+		input := []string{
+			"DTSTART:20180220T090000Z",
+			"RDATE;VALUE=DATE-TIME:20180223T100000",
+		}
+		expected := "DTSTART:20180220T090000Z\nRDATE:20180223T100000Z"
+		s, err := StrSliceToRRuleSet(input)
+		if err != nil {
+			t.Error(err)
+		}
+
+		sRRule := s.String()
+
+		if sRRule != expected {
+			t.Error(fmt.Sprintf("DTSTART output not valid. Expected: \n%s \n Got: \n%s", expected, sRRule))
 		}
 	})
 

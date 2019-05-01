@@ -20,7 +20,8 @@ func (set *Set) Recurrence() []string {
 	var res []string
 
 	if !set.dtstart.IsZero() {
-		res = append(res, fmt.Sprintf("DTSTART:%s", timeToDtStartStr(set.dtstart)))
+		// No colon, DTSTART may have TZID, which would require a semicolon after DTSTART
+		res = append(res, fmt.Sprintf("DTSTART%s", timeToDtStartStr(set.dtstart)))
 	}
 	for _, item := range set.rrule {
 		res = append(res, fmt.Sprintf("RRULE:%s", item))

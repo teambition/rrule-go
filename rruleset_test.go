@@ -94,7 +94,7 @@ func TestSetRFCString(t *testing.T) {
 		}
 	}
 
-	want := `DTSTART:TZID=America/New_York:19970902T090000
+	want := `DTSTART;TZID=America/New_York:19970902T090000
 RRULE:FREQ=YEARLY;COUNT=1;BYDAY=TU
 RDATE:19970904T090000Z
 RDATE:19970909T090000Z
@@ -105,6 +105,14 @@ EXDATE:19970918T090000Z`
 	value := set.String()
 	if want != value {
 		t.Errorf("get \n%v\n want \n%v\n", value, want)
+	}
+
+	sset, err := StrToRRuleSet(set.String())
+	if err != nil {
+		t.Errorf("Could not create RSET from set output")
+	}
+	if sset.String() != set.String() {
+		t.Errorf("RSET created from set output different than original set")
 	}
 }
 

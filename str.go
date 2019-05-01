@@ -22,7 +22,11 @@ func timeToStr(time time.Time) string {
 }
 
 func timeToDtStartStr(time time.Time) string {
-	return fmt.Sprintf("TZID=%s:%s", time.Location().String(), time.Format(LocalDateTimeFormat))
+	if time.Location().String() != "UTC" {
+		return fmt.Sprintf(";TZID=%s:%s", time.Location().String(), time.Format(LocalDateTimeFormat))
+	} else {
+		return fmt.Sprintf(":%s", time.Format(DateTimeFormat))
+	}
 }
 
 func strToTimeInLoc(str string, loc *time.Location) (time.Time, error) {

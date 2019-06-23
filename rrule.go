@@ -138,7 +138,7 @@ func NewRRule(arg ROption) (*RRule, error) {
 	r := RRule{}
 	r.OrigOptions = arg
 	if arg.Dtstart.IsZero() {
-		arg.Dtstart = time.Now()
+		arg.Dtstart = time.Now().UTC()
 	}
 	arg.Dtstart = arg.Dtstart.Truncate(time.Second)
 	r.dtstart = arg.Dtstart
@@ -151,7 +151,7 @@ func NewRRule(arg ROption) (*RRule, error) {
 	r.count = arg.Count
 	if arg.Until.IsZero() {
 		// add largest representable duration (approximately 290 years).
-		arg.Until = arg.Dtstart.Add(time.Duration(1<<63 - 1))
+		arg.Until = r.dtstart.Add(time.Duration(1<<63 - 1))
 	}
 	r.until = arg.Until
 	r.wkst = arg.Wkst.weekday
@@ -167,15 +167,15 @@ func NewRRule(arg ROption) (*RRule, error) {
 		len(arg.Bymonthday) == 0 &&
 		len(arg.Byweekday) == 0 &&
 		len(arg.Byeaster) == 0 {
-		if arg.Freq == YEARLY {
+		if r.freq == YEARLY {
 			if len(arg.Bymonth) == 0 {
-				arg.Bymonth = []int{int(arg.Dtstart.Month())}
+				arg.Bymonth = []int{int(r.dtstart.Month())}
 			}
-			arg.Bymonthday = []int{arg.Dtstart.Day()}
-		} else if arg.Freq == MONTHLY {
-			arg.Bymonthday = []int{arg.Dtstart.Day()}
-		} else if arg.Freq == WEEKLY {
-			arg.Byweekday = []Weekday{Weekday{weekday: toPyWeekday(arg.Dtstart.Weekday())}}
+			arg.Bymonthday = []int{r.dtstart.Day()}
+		} else if r.freq == MONTHLY {
+			arg.Bymonthday = []int{r.dtstart.Day()}
+		} else if r.freq == WEEKLY {
+			arg.Byweekday = []Weekday{Weekday{weekday: toPyWeekday(r.dtstart.Weekday())}}
 		}
 	}
 	r.bymonth = arg.Bymonth
@@ -190,29 +190,29 @@ func NewRRule(arg ROption) (*RRule, error) {
 	}
 	r.byweekno = arg.Byweekno
 	for _, wday := range arg.Byweekday {
-		if wday.n == 0 || arg.Freq > MONTHLY {
+		if wday.n == 0 || r.freq > MONTHLY {
 			r.byweekday = append(r.byweekday, wday.weekday)
 		} else {
 			r.bynweekday = append(r.bynweekday, wday)
 		}
 	}
 	if len(arg.Byhour) == 0 {
-		if arg.Freq < HOURLY {
-			r.byhour = []int{arg.Dtstart.Hour()}
+		if r.freq < HOURLY {
+			r.byhour = []int{r.dtstart.Hour()}
 		}
 	} else {
 		r.byhour = arg.Byhour
 	}
 	if len(arg.Byminute) == 0 {
-		if arg.Freq < MINUTELY {
-			r.byminute = []int{arg.Dtstart.Minute()}
+		if r.freq < MINUTELY {
+			r.byminute = []int{r.dtstart.Minute()}
 		}
 	} else {
 		r.byminute = arg.Byminute
 	}
 	if len(arg.Bysecond) == 0 {
-		if arg.Freq < SECONDLY {
-			r.bysecond = []int{arg.Dtstart.Second()}
+		if r.freq < SECONDLY {
+			r.bysecond = []int{r.dtstart.Second()}
 		}
 	} else {
 		r.bysecond = arg.Bysecond
@@ -790,8 +790,18 @@ func (r *RRule) After(dt time.Time, inc bool) time.Time {
 
 // DTStart set a new DTStart for the rule and recalculates the timeset if needed.
 func (r *RRule) DTStart(dt time.Time) {
-	r.dtstart = dt
+	r.dtstart = dt.Truncate(time.Second)
+	r.Options.Dtstart = r.dtstart
 
+	if len(r.Options.Byhour) == 0 && r.freq < HOURLY {
+		r.byhour = []int{r.dtstart.Hour()}
+	}
+	if len(r.Options.Byminute) == 0 && r.freq < MINUTELY {
+		r.byminute = []int{r.dtstart.Minute()}
+	}
+	if len(r.Options.Bysecond) == 0 && r.freq < SECONDLY {
+		r.bysecond = []int{r.dtstart.Second()}
+	}
 	// Calculate the timeset if needed
 	r.calculateTimeset()
 }
@@ -799,6 +809,7 @@ func (r *RRule) DTStart(dt time.Time) {
 // Until set a new Until for the rule and recalculates the timeset if needed.
 func (r *RRule) Until(ut time.Time) {
 	r.until = ut
+	r.Options.Until = ut
 }
 
 // calculateTimeset calculates the timeset if needed.

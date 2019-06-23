@@ -40,7 +40,7 @@ func (set *Set) Recurrence() []string {
 
 // DTStart sets dtstart property for all rules in set
 func (set *Set) DTStart(dtstart time.Time) {
-	set.dtstart = dtstart
+	set.dtstart = dtstart.Truncate(time.Second)
 
 	for _, r := range set.rrule {
 		r.DTStart(set.dtstart)

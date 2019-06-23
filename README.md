@@ -117,4 +117,4 @@ For more examples see [python-dateutil](http://labix.org/python-dateutil/) docum
 ## License
 
 Gear is licensed under the [MIT](https://github.com/teambition/gear/blob/master/LICENSE) license.
-Copyright &copy; 2017-2018 [Teambition](https://www.teambition.com).
+Copyright &copy; 2017-2019 [Teambition](https://www.teambition.com).

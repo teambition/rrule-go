@@ -3745,13 +3745,10 @@ func TestRuleChangeDTStartTimezoneRespected(t *testing.T) {
 
 	rule, err := NewRRule(
 		ROption{
-			Freq:     DAILY,
-			Count:    10,
-			Wkst:     MO,
-			Byhour:   []int{10},
-			Byminute: []int{0},
-			Bysecond: []int{0},
-			Dtstart:  time.Date(2019, 3, 6, 0, 0, 0, 0, loc),
+			Freq:    DAILY,
+			Count:   10,
+			Wkst:    MO,
+			Dtstart: time.Date(2019, 3, 6, 1, 1, 1, 0, loc),
 		},
 	)
 	if err != nil {
@@ -3767,6 +3764,10 @@ func TestRuleChangeDTStartTimezoneRespected(t *testing.T) {
 	for _, e := range events {
 		if e.Location().String() != "UTC" {
 			t.Fatal("expected", "UTC", "got", e.Location().String())
+		}
+		h, m, s := e.Clock()
+		if (h + m + s) != 0 {
+			t.Fatal("expected", "0", "got", h, m, s)
 		}
 	}
 }

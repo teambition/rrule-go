@@ -2,6 +2,7 @@ package rrule
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 )
@@ -135,6 +136,9 @@ type RRule struct {
 
 // NewRRule construct a new RRule instance
 func NewRRule(arg ROption) (*RRule, error) {
+	if err := validateBounds(arg); err != nil {
+		return nil, err
+	}
 	r := RRule{}
 	r.OrigOptions = arg
 	if arg.Dtstart.IsZero() {
@@ -155,12 +159,6 @@ func NewRRule(arg ROption) (*RRule, error) {
 	}
 	r.until = arg.Until
 	r.wkst = arg.Wkst.weekday
-	for _, pos := range arg.Bysetpos {
-		if pos == 0 || !(-366 <= pos && pos <= 366) {
-			return nil, errors.New(
-				"bysetpos must be between 1 and 366, or between -366 and -1")
-		}
-	}
 	r.bysetpos = arg.Bysetpos
 	if len(arg.Byweekno) == 0 &&
 		len(arg.Byyearday) == 0 &&
@@ -223,6 +221,61 @@ func NewRRule(arg ROption) (*RRule, error) {
 	r.calculateTimeset()
 
 	return &r, nil
+}
+
+// validateBounds checks the RRule's options are within the boundaries defined
+// in RRFC 5545. This is useful to ensure that the RRule can even have any times,
+// as going outside these bounds trivially will never have any dates. This can catch
+// obvious user error.
+func validateBounds(arg ROption) error {
+	bounds := []struct {
+		field []int
+		param string
+		bound []int
+		plusMinus bool // If the bound also applies for -x to -y.
+	} {
+		{arg.Bysecond, "bysecond", []int{0, 60}, false},
+		{arg.Byminute, "byminute", []int{0, 59}, false},
+		{arg.Byhour, "byhour", []int{0, 23}, false},
+		{arg.Bymonthday, "bymonthday", []int{1, 31}, true},
+		{arg.Byyearday, "byyearday", []int{1, 366}, true},
+		{arg.Byweekno, "byweekno", []int{1, 53}, true},
+		{arg.Bymonth, "bymonth", []int{1, 12}, false},
+		{arg.Bysetpos, "bysetpos", []int{1, 366}, true},
+	}
+
+	checkBounds := func(param string, value int, bounds []int, plusMinus bool) error {
+		if !(value >= bounds[0] && value <= bounds[1]) && (!plusMinus || !(value <= -bounds[0] && value >= -bounds[1])) {
+			plusMinusBounds := ""
+			if plusMinus {
+				plusMinusBounds = fmt.Sprintf(" or %d and %d", -bounds[0], -bounds[1])
+			}
+			return fmt.Errorf("%s must be between %d and %d%s", param, bounds[0], bounds[1], plusMinusBounds)
+		}
+		return nil
+	}
+
+	for _, b := range bounds {
+		for _, value := range b.field {
+			if err := checkBounds(b.param, value, b.bound, b.plusMinus); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Days can optionally specify weeks, like BYDAY=+2MO for the 2nd Monday
+	// of the month/year.
+	for _, w := range arg.Byweekday {
+		if w.n > 53 || w.n < -53 {
+			return errors.New("byday must be between 1 and 53 or -1 and -53")
+		}
+	}
+
+	if arg.Interval < 0 {
+		return errors.New("interval must be greater than 0")
+	}
+
+	return nil
 }
 
 type iterInfo struct {

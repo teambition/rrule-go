@@ -65,6 +65,18 @@ func TestMonthlyMaxYear(t *testing.T) {
 	}
 }
 
+func TestWeeklyMaxYear(t *testing.T) {
+	// Purposefully doesn't match anything for code coverage.
+	r, _ := NewRRule(ROption{Freq: WEEKLY, Bymonthday: []int{31},
+		Byyearday: []int{1}, Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+	})
+	value := r.All()
+	want := []time.Time{}
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
 func TestInvalidRRules(t *testing.T) {
 	tests := []struct {
 		desc string
@@ -74,12 +86,12 @@ func TestInvalidRRules(t *testing.T) {
 		{
 			desc: "Bysecond under",
 			rrule: ROption{Freq: YEARLY, Bysecond: []int{-1}},
-			wantErr: "bysecond must be between 0 and 60",
+			wantErr: "bysecond must be between 0 and 59",
 		},
 		{
 			desc: "Bysecond over",
-			rrule: ROption{Freq: YEARLY, Bysecond: []int{61}},
-			wantErr: "bysecond must be between 0 and 60",
+			rrule: ROption{Freq: YEARLY, Bysecond: []int{60}},
+			wantErr: "bysecond must be between 0 and 59",
 		},
 		{
 			desc: "Byminute under",

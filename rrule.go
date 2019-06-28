@@ -234,7 +234,7 @@ func validateBounds(arg ROption) error {
 		bound []int
 		plusMinus bool // If the bound also applies for -x to -y.
 	} {
-		{arg.Bysecond, "bysecond", []int{0, 60}, false},
+		{arg.Bysecond, "bysecond", []int{0, 59}, false},
 		{arg.Byminute, "byminute", []int{0, 59}, false},
 		{arg.Byhour, "byhour", []int{0, 23}, false},
 		{arg.Bymonthday, "bymonthday", []int{1, 31}, true},

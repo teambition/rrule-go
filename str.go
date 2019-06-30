@@ -174,6 +174,7 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 	}
 	result := ROption{}
 	result.RFC = true
+	freqSet := false
 	for _, attr := range strings.Split(rfcString, ";") {
 		keyValue := strings.Split(attr, "=")
 		if len(keyValue) != 2 {
@@ -187,6 +188,7 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 		switch key {
 		case "FREQ":
 			result.Freq, e = strToFreq(value)
+			freqSet = true
 		case "DTSTART":
 			result.RFC = false
 			result.Dtstart, e = strToTimeInLoc(value, loc)
@@ -224,6 +226,13 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 		if e != nil {
 			return nil, e
 		}
+	}
+	if !freqSet {
+		// Per RFC 5545, FREQ is mandatory and supposed to be the first
+		// parameter. We'll just confirm it exists because we do not
+		// have a meaningful default nor a way to confirm if we parsed
+		// a value from the options this returns.
+		return nil, errors.New("RRULE property FREQ is required")
 	}
 	return &result, nil
 }

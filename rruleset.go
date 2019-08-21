@@ -74,6 +74,11 @@ func (set *Set) RDate(rdate time.Time) {
 	set.rdate = append(set.rdate, rdate)
 }
 
+// SetRDates sets explicitly added dates (rdates) in the set
+func (set *Set) SetRDates(rdates []time.Time) {
+	set.rdate = rdates
+}
+
 // GetRDate returns explicitly added dates (rdates) in the set
 func (set *Set) GetRDate() []time.Time {
 	return set.rdate
@@ -99,6 +104,11 @@ func (set *Set) GetExRule() []*RRule {
 // even if some inclusive rrule or rdate matches them.
 func (set *Set) ExDate(exdate time.Time) {
 	set.exdate = append(set.exdate, exdate)
+}
+
+// SetExDates sets explicitly excluded dates (exdates) in the set
+func (set *Set) SetExDates(exdates []time.Time) {
+	set.exdate = exdates
 }
 
 // GetExDate returns explicitly excluded dates (exdates) in the set

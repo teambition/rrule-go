@@ -147,6 +147,26 @@ func TestSetDate(t *testing.T) {
 	}
 }
 
+func TestSetRDates(t *testing.T) {
+	set := Set{}
+	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	set.RRule(r)
+	set.SetRDates([]time.Time{
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC),
+	})
+	value := set.All()
+	want := []time.Time{
+		time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC),
+	}
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
 func TestSetExRule(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 6, Byweekday: []Weekday{TU, TH},
@@ -172,6 +192,25 @@ func TestSetExDate(t *testing.T) {
 	set.ExDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC))
 	set.ExDate(time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC))
 	set.ExDate(time.Date(1997, 9, 18, 9, 0, 0, 0, time.UTC))
+	value := set.All()
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 16, 9, 0, 0, 0, time.UTC)}
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestSetExDates(t *testing.T) {
+	set := Set{}
+	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 6, Byweekday: []Weekday{TU, TH},
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	set.RRule(r)
+	set.SetExDates([]time.Time{
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 18, 9, 0, 0, 0, time.UTC),
+	})
 	value := set.All()
 	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
 		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC),

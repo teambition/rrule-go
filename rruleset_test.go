@@ -1,6 +1,8 @@
 package rrule
 
 import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
@@ -439,4 +441,11 @@ func TestRuleSetChangeDTStartTimezoneRespected(t *testing.T) {
 			t.Fatal("expected", "UTC", "got", e.Location().String())
 		}
 	}
+}
+
+func TestStrToRRuleSetWithUntilForRecurrence(t *testing.T) {
+	str := "DTSTART;TZID=America/Los_Angeles:20200225T060000\nRRULE:FREQ=WEEKLY;INTERVAL=1;WKST=MO;BYDAY=TU;UNTIL=20200303T063000"
+	r, err := StrToRRuleSet(str)
+	require.NoError(t, err, "should successfully parse the RRULE")
+	assert.Equal(t, 2, len(r.All()), "should find two recurrences and treat UNTIL in specified TIMEZONE")
 }

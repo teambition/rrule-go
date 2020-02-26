@@ -309,7 +309,7 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 
 		switch name {
 		case "RRULE", "EXRULE":
-			rOpt, err := StrToROption(rule)
+			rOpt, err := StrToROptionInLocation(rule, defaultLoc)
 			if err != nil {
 				return nil, fmt.Errorf("StrToROption failed: %v", err)
 			}

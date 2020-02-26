@@ -91,7 +91,7 @@ func TestSetStr(t *testing.T) {
 		t.Fatalf("StrToRRuleSet(%s) returned error: %v", setStr, err)
 	}
 
-	assertRulesMatch(set, t)
+	assertRulesMatch(set, t, false)
 }
 
 func TestStrToDtStart(t *testing.T) {
@@ -281,7 +281,7 @@ func TestRFCSetStr(t *testing.T) {
 		t.Errorf("dtstart time wrong should be %s but is %s", dtWantTime, dtstart)
 	}
 
-	assertRulesMatch(set, t)
+	assertRulesMatch(set, t, true)
 
 	dtWantAfter := time.Date(2018, 1, 2, 9, 0, 0, 0, nyLoc)
 	dtAfter := set.After(dtWantTime, false)
@@ -405,7 +405,7 @@ func TestStrSetParseErrors(t *testing.T) {
 }
 
 // Helper for TestRFCSetStr and TestSetStr
-func assertRulesMatch(set *Set, t *testing.T) {
+func assertRulesMatch(set *Set, t *testing.T, withLocale bool) {
 	// matching parsed RRules
 	rRules := set.GetRRule()
 	if len(rRules) != 3 {
@@ -417,7 +417,13 @@ func assertRulesMatch(set *Set, t *testing.T) {
 	if rRules[1].String() != "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU" {
 		t.Errorf("Unexpected rrule: %s", rRules[0].String())
 	}
-	if rRules[2].String() != "FREQ=MONTHLY;UNTIL=20180520T000000Z;BYMONTHDAY=1,2,3" {
+
+	expectedRRule3 := "FREQ=MONTHLY;UNTIL=20180520T000000Z;BYMONTHDAY=1,2,3"
+	if withLocale {
+		expectedRRule3 = "FREQ=MONTHLY;UNTIL=20180520T040000Z;BYMONTHDAY=1,2,3"
+	}
+
+	if rRules[2].String() != expectedRRule3 {
 		t.Errorf("Unexpected rrule: %s", rRules[2].String())
 	}
 

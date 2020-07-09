@@ -71,12 +71,15 @@ func (set *Set) GetRRule() []*RRule {
 
 // RDate include the given datetime instance in the recurrence set generation.
 func (set *Set) RDate(rdate time.Time) {
-	set.rdate = append(set.rdate, rdate)
+	set.rdate = append(set.rdate, rdate.Truncate(time.Second))
 }
 
 // SetRDates sets explicitly added dates (rdates) in the set
 func (set *Set) SetRDates(rdates []time.Time) {
-	set.rdate = rdates
+	set.rdate = make([]time.Time, 0, len(rdates))
+	for _, rdate := range rdates {
+		set.rdate = append(set.rdate, rdate.Truncate(time.Second))
+	}
 }
 
 // GetRDate returns explicitly added dates (rdates) in the set
@@ -103,12 +106,15 @@ func (set *Set) GetExRule() []*RRule {
 // Dates included that way will not be generated,
 // even if some inclusive rrule or rdate matches them.
 func (set *Set) ExDate(exdate time.Time) {
-	set.exdate = append(set.exdate, exdate)
+	set.exdate = append(set.exdate, exdate.Truncate(time.Second))
 }
 
 // SetExDates sets explicitly excluded dates (exdates) in the set
 func (set *Set) SetExDates(exdates []time.Time) {
-	set.exdate = exdates
+	set.exdate = make([]time.Time, 0, len(exdates))
+	for _, exdate := range exdates {
+		set.exdate = append(set.exdate, exdate.Truncate(time.Second))
+	}
 }
 
 // GetExDate returns explicitly excluded dates (exdates) in the set

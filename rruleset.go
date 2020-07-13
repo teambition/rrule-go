@@ -24,7 +24,7 @@ func (set *Set) Recurrence() []string {
 	}
 
 	if set.rrule != nil {
-		res = append(res, fmt.Sprintf("RRULE:%s", set.rrule.OrigOptions.rruleString()))
+		res = append(res, fmt.Sprintf("RRULE:%s", set.rrule.OrigOptions.RRuleString()))
 	}
 
 	for _, item := range set.rdate {
@@ -37,7 +37,7 @@ func (set *Set) Recurrence() []string {
 	return res
 }
 
-// DTStart sets dtstart property for all rules in set
+// DTStart sets dtstart property for set
 func (set *Set) DTStart(dtstart time.Time) {
 	set.dtstart = dtstart.Truncate(time.Second)
 
@@ -51,7 +51,8 @@ func (set *Set) GetDTStart() time.Time {
 	return set.dtstart
 }
 
-// RRule include the given rrule instance in the recurrence set generation.
+// RRule set the RRULE for set.
+// There is the only one RRULE in the set as https://tools.ietf.org/html/rfc5545#appendix-A.1
 func (set *Set) RRule(rrule *RRule) {
 	if !rrule.OrigOptions.Dtstart.IsZero() {
 		set.dtstart = rrule.dtstart
@@ -61,7 +62,7 @@ func (set *Set) RRule(rrule *RRule) {
 	set.rrule = rrule
 }
 
-// GetRRule return the rrules in the set
+// GetRRule returns the rrules in the set
 func (set *Set) GetRRule() *RRule {
 	return set.rrule
 }

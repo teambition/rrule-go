@@ -116,8 +116,11 @@ func strToInts(value string) ([]int, error) {
 	return result, nil
 }
 
+// String returns RRULE string with DTSTART if exists. e.g.
+//   DTSTART;TZID=America/New_York:19970105T083000
+//   RRULE:FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=SU;BYHOUR=8,9;BYMINUTE=30
 func (option *ROption) String() string {
-	str := option.rruleString()
+	str := option.RRuleString()
 	if option.Dtstart.IsZero() {
 		return str
 	}
@@ -125,7 +128,8 @@ func (option *ROption) String() string {
 	return fmt.Sprintf("DTSTART%s\n%s", timeToRFCDatetimeStr(option.Dtstart), str)
 }
 
-func (option *ROption) rruleString() string {
+// RRuleString returns RRULE string exclude DTSTART
+func (option *ROption) RRuleString() string {
 	result := []string{fmt.Sprintf("FREQ=%v", option.Freq)}
 	if option.Interval != 0 {
 		result = append(result, fmt.Sprintf("INTERVAL=%v", option.Interval))
@@ -158,7 +162,7 @@ func (option *ROption) rruleString() string {
 	return strings.Join(result, ";")
 }
 
-// StrToROption converts string to ROption
+// StrToROption converts string to ROption.
 func StrToROption(rfcString string) (*ROption, error) {
 	return StrToROptionInLocation(rfcString, time.UTC)
 }

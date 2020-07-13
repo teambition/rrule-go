@@ -44,6 +44,10 @@ func TestCompatibility(t *testing.T) {
 	if s := r.String(); s != want {
 		t.Errorf("StrToRRule(%q).String() = %q, want %q", str, s, want)
 	}
+	r, _ = StrToRRule(want)
+	if s := r.String(); s != want {
+		t.Errorf("StrToRRule(%q).String() = %q, want %q", want, want, want)
+	}
 }
 
 func TestInvalidString(t *testing.T) {

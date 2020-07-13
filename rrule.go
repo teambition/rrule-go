@@ -105,7 +105,6 @@ type ROption struct {
 	Byminute   []int
 	Bysecond   []int
 	Byeaster   []int
-	RFC        bool
 }
 
 // RRule offers a small, complete, and very fast, implementation of the recurrence rules
@@ -141,25 +140,44 @@ func NewRRule(arg ROption) (*RRule, error) {
 	}
 	r := RRule{}
 	r.OrigOptions = arg
+	r.build(arg)
+	return &r, nil
+}
+
+func (r *RRule) build(arg ROption) {
+	// FREQ default to YEARLY
+	r.freq = arg.Freq
+
+	// INTERVAL default to 1
+	if arg.Interval < 1 {
+		arg.Interval = 1
+	}
+	r.interval = arg.Interval
+
+	if arg.Count < 0 {
+		arg.Count = 0
+	}
+	r.count = arg.Count
+
+	// DTSTART default to now
 	if arg.Dtstart.IsZero() {
 		arg.Dtstart = time.Now().UTC()
 	}
 	arg.Dtstart = arg.Dtstart.Truncate(time.Second)
 	r.dtstart = arg.Dtstart
-	r.freq = arg.Freq
-	if arg.Interval == 0 {
-		r.interval = 1
-	} else {
-		r.interval = arg.Interval
-	}
-	r.count = arg.Count
+
+	// UNTIL
 	if arg.Until.IsZero() {
 		// add largest representable duration (approximately 290 years).
-		arg.Until = r.dtstart.Add(time.Duration(1<<63 - 1))
+		r.until = r.dtstart.Add(time.Duration(1<<63 - 1))
+	} else {
+		arg.Until = arg.Until.Truncate(time.Second)
+		r.until = arg.Until
 	}
-	r.until = arg.Until
+
 	r.wkst = arg.Wkst.weekday
 	r.bysetpos = arg.Bysetpos
+
 	if len(arg.Byweekno) == 0 &&
 		len(arg.Byyearday) == 0 &&
 		len(arg.Bymonthday) == 0 &&
@@ -173,7 +191,7 @@ func NewRRule(arg ROption) (*RRule, error) {
 		} else if r.freq == MONTHLY {
 			arg.Bymonthday = []int{r.dtstart.Day()}
 		} else if r.freq == WEEKLY {
-			arg.Byweekday = []Weekday{Weekday{weekday: toPyWeekday(r.dtstart.Weekday())}}
+			arg.Byweekday = []Weekday{{weekday: toPyWeekday(r.dtstart.Weekday())}}
 		}
 	}
 	r.bymonth = arg.Bymonth
@@ -216,11 +234,21 @@ func NewRRule(arg ROption) (*RRule, error) {
 		r.bysecond = arg.Bysecond
 	}
 
-	r.Options = arg
-	// Calculate the timeset if needed
-	r.calculateTimeset()
+	// Reset the timeset value
+	r.timeset = []time.Time{}
 
-	return &r, nil
+	if r.freq < HOURLY {
+		for _, hour := range r.byhour {
+			for _, minute := range r.byminute {
+				for _, second := range r.bysecond {
+					r.timeset = append(r.timeset, time.Date(1, 1, 1, hour, minute, second, 0, r.dtstart.Location()))
+				}
+			}
+		}
+		sort.Sort(timeSlice(r.timeset))
+	}
+
+	r.Options = arg
 }
 
 // validateBounds checks the RRule's options are within the boundaries defined
@@ -229,11 +257,11 @@ func NewRRule(arg ROption) (*RRule, error) {
 // obvious user error.
 func validateBounds(arg ROption) error {
 	bounds := []struct {
-		field []int
-		param string
-		bound []int
+		field     []int
+		param     string
+		bound     []int
 		plusMinus bool // If the bound also applies for -x to -y.
-	} {
+	}{
 		{arg.Bysecond, "bysecond", []int{0, 59}, false},
 		{arg.Byminute, "byminute", []int{0, 59}, false},
 		{arg.Byhour, "byhour", []int{0, 23}, false},
@@ -843,41 +871,12 @@ func (r *RRule) After(dt time.Time, inc bool) time.Time {
 
 // DTStart set a new DTStart for the rule and recalculates the timeset if needed.
 func (r *RRule) DTStart(dt time.Time) {
-	r.dtstart = dt.Truncate(time.Second)
-	r.Options.Dtstart = r.dtstart
-
-	if len(r.Options.Byhour) == 0 && r.freq < HOURLY {
-		r.byhour = []int{r.dtstart.Hour()}
-	}
-	if len(r.Options.Byminute) == 0 && r.freq < MINUTELY {
-		r.byminute = []int{r.dtstart.Minute()}
-	}
-	if len(r.Options.Bysecond) == 0 && r.freq < SECONDLY {
-		r.bysecond = []int{r.dtstart.Second()}
-	}
-	// Calculate the timeset if needed
-	r.calculateTimeset()
+	r.OrigOptions.Dtstart = dt.Truncate(time.Second)
+	r.build(r.OrigOptions)
 }
 
 // Until set a new Until for the rule and recalculates the timeset if needed.
 func (r *RRule) Until(ut time.Time) {
-	r.until = ut
-	r.Options.Until = ut
-}
-
-// calculateTimeset calculates the timeset if needed.
-func (r *RRule) calculateTimeset() {
-	// Reset the timeset value
-	r.timeset = []time.Time{}
-
-	if r.freq < HOURLY {
-		for _, hour := range r.byhour {
-			for _, minute := range r.byminute {
-				for _, second := range r.bysecond {
-					r.timeset = append(r.timeset, time.Date(1, 1, 1, hour, minute, second, 0, r.dtstart.Location()))
-				}
-			}
-		}
-		sort.Sort(timeSlice(r.timeset))
-	}
+	r.OrigOptions.Until = ut.Truncate(time.Second)
+	r.build(r.OrigOptions)
 }

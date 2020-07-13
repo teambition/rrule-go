@@ -52,11 +52,6 @@ func exampleRRuleSet() {
 		Count:   7,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.Local)})
 	set.RRule(r)
-	r, _ = rrule.NewRRule(rrule.ROption{
-		Freq:      rrule.YEARLY,
-		Byweekday: []rrule.Weekday{rrule.SA, rrule.SU},
-		Dtstart:   time.Date(1997, 9, 2, 9, 0, 0, 0, time.Local)})
-	set.ExRule(r)
 	fmt.Println(set.All())
 	// [1997-09-02 09:00:00 +0800 CST
 	// 1997-09-03 09:00:00 +0800 CST

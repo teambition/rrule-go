@@ -10,19 +10,10 @@ func TestRFCRuleToStr(t *testing.T) {
 	nyLoc, _ := time.LoadLocation("America/New_York")
 	dtStart := time.Date(2018, 1, 1, 9, 0, 0, 0, nyLoc)
 
-	r, _ := NewRRule(ROption{Freq: MONTHLY, Dtstart: dtStart, RFC: true})
-	if r.String() != "FREQ=MONTHLY" {
-		t.Errorf("Expected RFC string FREQ=MONTHLY, got %v", r.String())
-	}
-}
-
-func TestRuleToStr(t *testing.T) {
-	nyLoc, _ := time.LoadLocation("America/New_York")
-	dtStart := time.Date(2018, 1, 1, 9, 0, 0, 0, nyLoc)
-
 	r, _ := NewRRule(ROption{Freq: MONTHLY, Dtstart: dtStart})
-	if r.String() != "FREQ=MONTHLY;DTSTART=20180101T140000Z" {
-		t.Errorf("Expected non RFC string FREQ=MONTHLY;DTSTART=20180101T140000Z, got %v", r.String())
+	want := "DTSTART;TZID=America/New_York:20180101T090000\nFREQ=MONTHLY"
+	if r.String() != want {
+		t.Errorf("Expected RFC string %s, got %v", want, r.String())
 	}
 }
 
@@ -30,12 +21,13 @@ func TestRFCSetToString(t *testing.T) {
 	nyLoc, _ := time.LoadLocation("America/New_York")
 	dtStart := time.Date(2018, 1, 1, 9, 0, 0, 0, nyLoc)
 
-	r, _ := NewRRule(ROption{Freq: MONTHLY, Dtstart: dtStart, RFC: true})
-	if r.String() != "FREQ=MONTHLY" {
-		t.Errorf("Expected RFC string FREQ=MONTHLY, got %v", r.String())
+	r, _ := NewRRule(ROption{Freq: MONTHLY, Dtstart: dtStart})
+	want := "DTSTART;TZID=America/New_York:20180101T090000\nFREQ=MONTHLY"
+	if r.String() != want {
+		t.Errorf("Expected RFC string %s, got %v", want, r.String())
 	}
 
-	expectedSetStr := "DTSTART;TZID=America/New_York:20180101T090000\n" + "RRULE:FREQ=MONTHLY"
+	expectedSetStr := "DTSTART;TZID=America/New_York:20180101T090000\nRRULE:FREQ=MONTHLY"
 
 	set := Set{}
 	set.RRule(r)
@@ -45,15 +37,16 @@ func TestRFCSetToString(t *testing.T) {
 	}
 }
 
-func TestStr(t *testing.T) {
+func TestCompatibility(t *testing.T) {
 	str := "FREQ=WEEKLY;DTSTART=20120201T093000Z;INTERVAL=5;WKST=TU;COUNT=2;UNTIL=20130130T230000Z;BYSETPOS=2;BYMONTH=3;BYYEARDAY=95;BYWEEKNO=1;BYDAY=MO,+2FR;BYHOUR=9;BYMINUTE=30;BYSECOND=0;BYEASTER=-1"
 	r, _ := StrToRRule(str)
-	if s := r.String(); s != str {
-		t.Errorf("StrToRRule(%q).String() = %q, want %q", str, s, str)
+	want := "DTSTART:20120201T093000Z\nFREQ=WEEKLY;INTERVAL=5;WKST=TU;COUNT=2;UNTIL=20130130T230000Z;BYSETPOS=2;BYMONTH=3;BYYEARDAY=95;BYWEEKNO=1;BYDAY=MO,+2FR;BYHOUR=9;BYMINUTE=30;BYSECOND=0;BYEASTER=-1"
+	if s := r.String(); s != want {
+		t.Errorf("StrToRRule(%q).String() = %q, want %q", str, s, want)
 	}
-
-	if r.OrigOptions.RFC {
-		t.Errorf("StrToRRule(%q).OrigOptions.RFC = true, want false", str)
+	r, _ = StrToRRule(want)
+	if s := r.String(); s != want {
+		t.Errorf("StrToRRule(%q).String() = %q, want %q", want, want, want)
 	}
 }
 
@@ -80,9 +73,6 @@ func TestInvalidString(t *testing.T) {
 
 func TestSetStr(t *testing.T) {
 	setStr := "RRULE:FREQ=DAILY;UNTIL=20180517T235959Z\n" +
-		"RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU\n" +
-		"RRULE:FREQ=MONTHLY;UNTIL=20180520;BYMONTHDAY=1,2,3\n" +
-		"EXRULE:FREQ=WEEKLY;INTERVAL=4;BYDAY=MO\n" +
 		"EXDATE;VALUE=DATE-TIME:20180525T070000Z,20180530T130000Z\n" +
 		"RDATE;VALUE=DATE-TIME:20180801T131313Z,20180902T141414Z\n"
 
@@ -91,7 +81,31 @@ func TestSetStr(t *testing.T) {
 		t.Fatalf("StrToRRuleSet(%s) returned error: %v", setStr, err)
 	}
 
-	assertRulesMatch(set, t)
+	rule := set.GetRRule()
+	if rule == nil {
+		t.Errorf("Unexpected rrule parsed")
+	}
+	if rule.String() != "FREQ=DAILY;UNTIL=20180517T235959Z" {
+		t.Errorf("Unexpected rrule: %s", rule.String())
+	}
+
+	// matching parsed EXDates
+	exDates := set.GetExDate()
+	if len(exDates) != 2 {
+		t.Errorf("Unexpected number of exDates: %v != 2, %v", len(exDates), exDates)
+	}
+	if [2]string{timeToStr(exDates[0]), timeToStr(exDates[1])} != [2]string{"20180525T070000Z", "20180530T130000Z"} {
+		t.Errorf("Unexpected exDates: %v", exDates)
+	}
+
+	// matching parsed RDates
+	rDates := set.GetRDate()
+	if len(rDates) != 2 {
+		t.Errorf("Unexpected number of rDates: %v != 2, %v", len(rDates), rDates)
+	}
+	if [2]string{timeToStr(rDates[0]), timeToStr(rDates[1])} != [2]string{"20180801T131313Z", "20180902T141414Z"} {
+		t.Errorf("Unexpected exDates: %v", exDates)
+	}
 }
 
 func TestStrToDtStart(t *testing.T) {
@@ -195,7 +209,6 @@ func TestProcessRRuleName(t *testing.T) {
 	validCases := []string{
 		"DTSTART;TZID=America/New_York:19970714T133000",
 		"RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU",
-		"EXRULE:FREQ=WEEKLY;INTERVAL=4;BYDAY=MO",
 		"EXDATE;VALUE=DATE-TIME:20180525T070000Z,20180530T130000Z",
 		"RDATE;TZID=America/New_York;VALUE=DATE-TIME:20180801T131313Z,20180902T141414Z",
 	}
@@ -221,7 +234,7 @@ func TestProcessRRuleName(t *testing.T) {
 	}
 }
 
-func TestRFCSetStr(t *testing.T) {
+func TestSetStrCompatibility(t *testing.T) {
 	badInputStrs := []string{
 		"",
 		"FREQ=DAILY;UNTIL=20180517T235959Z",
@@ -239,8 +252,7 @@ func TestRFCSetStr(t *testing.T) {
 	inputStr := "DTSTART;TZID=America/New_York:20180101T090000\n" +
 		"RRULE:FREQ=DAILY;UNTIL=20180517T235959Z\n" +
 		"RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU\n" +
-		"RRULE:FREQ=MONTHLY;UNTIL=20180520;BYMONTHDAY=1,2,3\n" +
-		"EXRULE:FREQ=WEEKLY;INTERVAL=4;BYDAY=MO\n" +
+		"EXRULE:FREQ=MONTHLY;UNTIL=20180520;BYMONTHDAY=1,2,3\n" +
 		"EXDATE;VALUE=DATE-TIME:20180525T070000Z,20180530T130000Z\n" +
 		"RDATE;VALUE=DATE-TIME:20180801T131313Z,20180902T141414Z\n"
 
@@ -252,36 +264,34 @@ func TestRFCSetStr(t *testing.T) {
 	nyLoc, _ := time.LoadLocation("America/New_York")
 	dtWantTime := time.Date(2018, 1, 1, 9, 0, 0, 0, nyLoc)
 
-	for _, rrule := range set.GetRRule() {
-		if !rrule.OrigOptions.RFC {
-			t.Fatalf("Expected RRule %s to be RFC compliant", rrule)
-		}
-
-		if !dtWantTime.Equal(rrule.dtstart) {
-			t.Fatalf("Expected RRule dtstart to be %v got %v", dtWantTime, rrule.dtstart)
-		}
+	rrule := set.GetRRule()
+	if rrule.String() != "DTSTART;TZID=America/New_York:20180101T090000\nFREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU" {
+		t.Errorf("Unexpected rrule: %s", rrule.String())
+	}
+	if !dtWantTime.Equal(rrule.dtstart) {
+		t.Fatalf("Expected RRule dtstart to be %v got %v", dtWantTime, rrule.dtstart)
+	}
+	if !dtWantTime.Equal(set.GetDTStart()) {
+		t.Fatalf("Expected Set dtstart to be %v got %v", dtWantTime, set.GetDTStart())
 	}
 
-	for _, exrule := range set.GetExRule() {
-		if !exrule.OrigOptions.RFC {
-			t.Fatalf("Expected ExRule %s to be RFC compliant", exrule)
-		}
-
-		if !dtWantTime.Equal(exrule.dtstart) {
-			t.Fatalf("Expected ExRule dtstart to be %v got %v", dtWantTime, exrule.dtstart)
-		}
+	// matching parsed EXDates
+	exDates := set.GetExDate()
+	if len(exDates) != 2 {
+		t.Errorf("Unexpected number of exDates: %v != 2, %v", len(exDates), exDates)
+	}
+	if [2]string{timeToStr(exDates[0]), timeToStr(exDates[1])} != [2]string{"20180525T070000Z", "20180530T130000Z"} {
+		t.Errorf("Unexpected exDates: %v", exDates)
 	}
 
-	dtstart := set.GetDTStart()
-	if dtstart.IsZero() {
-		t.Errorf("dtstart not set")
+	// matching parsed RDates
+	rDates := set.GetRDate()
+	if len(rDates) != 2 {
+		t.Errorf("Unexpected number of rDates: %v != 2, %v", len(rDates), rDates)
 	}
-
-	if !dtstart.Equal(dtWantTime) {
-		t.Errorf("dtstart time wrong should be %s but is %s", dtWantTime, dtstart)
+	if [2]string{timeToStr(rDates[0]), timeToStr(rDates[1])} != [2]string{"20180801T131313Z", "20180902T141414Z"} {
+		t.Errorf("Unexpected exDates: %v", exDates)
 	}
-
-	assertRulesMatch(set, t)
 
 	dtWantAfter := time.Date(2018, 1, 2, 9, 0, 0, 0, nyLoc)
 	dtAfter := set.After(dtWantTime, false)
@@ -393,7 +403,7 @@ func TestStrSetEmptySliceParse(t *testing.T) {
 
 func TestStrSetParseErrors(t *testing.T) {
 	inputs := [][]string{
-		{"RULE:XXX"},
+		{"RRULE:XXX"},
 		{"RDATE;TZD=X:1"},
 	}
 
@@ -401,50 +411,5 @@ func TestStrSetParseErrors(t *testing.T) {
 		if _, err := StrSliceToRRuleSet(ss); err == nil {
 			t.Error("Expected parse error for rules: ", ss)
 		}
-	}
-}
-
-// Helper for TestRFCSetStr and TestSetStr
-func assertRulesMatch(set *Set, t *testing.T) {
-	// matching parsed RRules
-	rRules := set.GetRRule()
-	if len(rRules) != 3 {
-		t.Errorf("Unexpected number of rrule parsed: %v != 3, rrules: %v", len(rRules), rRules)
-	}
-	if rRules[0].String() != "FREQ=DAILY;UNTIL=20180517T235959Z" {
-		t.Errorf("Unexpected rrule: %s", rRules[0].String())
-	}
-	if rRules[1].String() != "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU" {
-		t.Errorf("Unexpected rrule: %s", rRules[0].String())
-	}
-	if rRules[2].String() != "FREQ=MONTHLY;UNTIL=20180520T000000Z;BYMONTHDAY=1,2,3" {
-		t.Errorf("Unexpected rrule: %s", rRules[2].String())
-	}
-
-	// matching parsed EXRules
-	exRules := set.GetExRule()
-	if len(exRules) != 1 {
-		t.Errorf("Unexpected number of exrule parsed: %v != 1, exrules: %v", len(exRules), exRules)
-	}
-	if exRules[0].String() != "FREQ=WEEKLY;INTERVAL=4;BYDAY=MO" {
-		t.Errorf("Unexpected exrule: %s", exRules[0].String())
-	}
-
-	// matching parsed EXDates
-	exDates := set.GetExDate()
-	if len(exDates) != 2 {
-		t.Errorf("Unexpected number of exDates: %v != 2, %v", len(exDates), exDates)
-	}
-	if [2]string{timeToStr(exDates[0]), timeToStr(exDates[1])} != [2]string{"20180525T070000Z", "20180530T130000Z"} {
-		t.Errorf("Unexpected exDates: %v", exDates)
-	}
-
-	// matching parsed RDates
-	rDates := set.GetRDate()
-	if len(rDates) != 2 {
-		t.Errorf("Unexpected number of rDates: %v != 2, %v", len(rDates), rDates)
-	}
-	if [2]string{timeToStr(rDates[0]), timeToStr(rDates[1])} != [2]string{"20180801T131313Z", "20180902T141414Z"} {
-		t.Errorf("Unexpected exDates: %v", exDates)
 	}
 }

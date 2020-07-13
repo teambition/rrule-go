@@ -19,8 +19,8 @@ func timesEqual(value, want []time.Time) bool {
 
 func TestNoDtstart(t *testing.T) {
 	r, _ := NewRRule(ROption{Freq: MONTHLY})
-	if seconds := time.Now().Sub(r.dtstart).Seconds(); seconds > 10 {
-		t.Errorf(`time.Now().Sub(r.dtstrt).Seconds() = %f, want <= 10`, seconds)
+	if time.Now().Unix()-r.dtstart.Unix() > 1 {
+		t.Errorf(`default Dtstart shold be time.Now(), but got %s`, r.dtstart.Format(time.RFC3339))
 	}
 }
 
@@ -79,123 +79,123 @@ func TestWeeklyMaxYear(t *testing.T) {
 
 func TestInvalidRRules(t *testing.T) {
 	tests := []struct {
-		desc string
-		rrule ROption
+		desc    string
+		rrule   ROption
 		wantErr string
-	} {
+	}{
 		{
-			desc: "Bysecond under",
-			rrule: ROption{Freq: YEARLY, Bysecond: []int{-1}},
+			desc:    "Bysecond under",
+			rrule:   ROption{Freq: YEARLY, Bysecond: []int{-1}},
 			wantErr: "bysecond must be between 0 and 59",
 		},
 		{
-			desc: "Bysecond over",
-			rrule: ROption{Freq: YEARLY, Bysecond: []int{60}},
+			desc:    "Bysecond over",
+			rrule:   ROption{Freq: YEARLY, Bysecond: []int{60}},
 			wantErr: "bysecond must be between 0 and 59",
 		},
 		{
-			desc: "Byminute under",
-			rrule: ROption{Freq: YEARLY, Byminute: []int{-1}},
+			desc:    "Byminute under",
+			rrule:   ROption{Freq: YEARLY, Byminute: []int{-1}},
 			wantErr: "byminute must be between 0 and 59",
 		},
 		{
-			desc: "Byminute over",
-			rrule: ROption{Freq: YEARLY, Byminute: []int{60}},
+			desc:    "Byminute over",
+			rrule:   ROption{Freq: YEARLY, Byminute: []int{60}},
 			wantErr: "byminute must be between 0 and 59",
 		},
 		{
-			desc: "Byhour under",
-			rrule: ROption{Freq: YEARLY, Byhour: []int{-1}},
+			desc:    "Byhour under",
+			rrule:   ROption{Freq: YEARLY, Byhour: []int{-1}},
 			wantErr: "byhour must be between 0 and 23",
 		},
 		{
-			desc: "Byhour over",
-			rrule: ROption{Freq: YEARLY, Byhour: []int{24}},
+			desc:    "Byhour over",
+			rrule:   ROption{Freq: YEARLY, Byhour: []int{24}},
 			wantErr: "byhour must be between 0 and 23",
 		},
 		{
-			desc: "Bymonthday under",
-			rrule: ROption{Freq: YEARLY, Bymonthday: []int{0}},
+			desc:    "Bymonthday under",
+			rrule:   ROption{Freq: YEARLY, Bymonthday: []int{0}},
 			wantErr: "bymonthday must be between 1 and 31 or -1 and -31",
 		},
 		{
-			desc: "Bymonthday over",
-			rrule: ROption{Freq: YEARLY, Bymonthday: []int{32}},
+			desc:    "Bymonthday over",
+			rrule:   ROption{Freq: YEARLY, Bymonthday: []int{32}},
 			wantErr: "bymonthday must be between 1 and 31 or -1 and -31",
 		},
 		{
-			desc: "Bymonthday under negative",
-			rrule: ROption{Freq: YEARLY, Bymonthday: []int{-32}},
+			desc:    "Bymonthday under negative",
+			rrule:   ROption{Freq: YEARLY, Bymonthday: []int{-32}},
 			wantErr: "bymonthday must be between 1 and 31 or -1 and -31",
 		},
 		{
-			desc: "Byyearday under",
-			rrule: ROption{Freq: YEARLY, Byyearday: []int{0}},
+			desc:    "Byyearday under",
+			rrule:   ROption{Freq: YEARLY, Byyearday: []int{0}},
 			wantErr: "byyearday must be between 1 and 366 or -1 and -366",
 		},
 		{
-			desc: "Byyearday over",
-			rrule: ROption{Freq: YEARLY, Byyearday: []int{367}},
+			desc:    "Byyearday over",
+			rrule:   ROption{Freq: YEARLY, Byyearday: []int{367}},
 			wantErr: "byyearday must be between 1 and 366 or -1 and -366",
 		},
 		{
-			desc: "Byyearday under negative",
-			rrule: ROption{Freq: YEARLY, Byyearday: []int{-367}},
+			desc:    "Byyearday under negative",
+			rrule:   ROption{Freq: YEARLY, Byyearday: []int{-367}},
 			wantErr: "byyearday must be between 1 and 366 or -1 and -366",
 		},
 		{
-			desc: "Byweekno under",
-			rrule: ROption{Freq: YEARLY, Byweekno: []int{0}},
+			desc:    "Byweekno under",
+			rrule:   ROption{Freq: YEARLY, Byweekno: []int{0}},
 			wantErr: "byweekno must be between 1 and 53 or -1 and -53",
 		},
 		{
-			desc: "Byweekno over",
-			rrule: ROption{Freq: YEARLY, Byweekno: []int{54}},
+			desc:    "Byweekno over",
+			rrule:   ROption{Freq: YEARLY, Byweekno: []int{54}},
 			wantErr: "byweekno must be between 1 and 53 or -1 and -53",
 		},
 		{
-			desc: "Byweekno under negative",
-			rrule: ROption{Freq: YEARLY, Byweekno: []int{-54}},
+			desc:    "Byweekno under negative",
+			rrule:   ROption{Freq: YEARLY, Byweekno: []int{-54}},
 			wantErr: "byweekno must be between 1 and 53 or -1 and -53",
 		},
 		{
-			desc: "Bymonth under",
-			rrule: ROption{Freq: YEARLY, Bymonth: []int{0}},
+			desc:    "Bymonth under",
+			rrule:   ROption{Freq: YEARLY, Bymonth: []int{0}},
 			wantErr: "bymonth must be between 1 and 12",
 		},
 		{
-			desc: "Bymonth over",
-			rrule: ROption{Freq: YEARLY, Bymonth: []int{13}},
+			desc:    "Bymonth over",
+			rrule:   ROption{Freq: YEARLY, Bymonth: []int{13}},
 			wantErr: "bymonth must be between 1 and 12",
 		},
 		{
-			desc: "Bysetpos under",
-			rrule: ROption{Freq: YEARLY, Bysetpos: []int{0}},
+			desc:    "Bysetpos under",
+			rrule:   ROption{Freq: YEARLY, Bysetpos: []int{0}},
 			wantErr: "bysetpos must be between 1 and 366 or -1 and -366",
 		},
 		{
-			desc: "Bysetpos over",
-			rrule: ROption{Freq: YEARLY, Bysetpos: []int{367}},
+			desc:    "Bysetpos over",
+			rrule:   ROption{Freq: YEARLY, Bysetpos: []int{367}},
 			wantErr: "bysetpos must be between 1 and 366 or -1 and -366",
 		},
 		{
-			desc: "Bysetpos under negative",
-			rrule: ROption{Freq: YEARLY, Bysetpos: []int{-367}},
+			desc:    "Bysetpos under negative",
+			rrule:   ROption{Freq: YEARLY, Bysetpos: []int{-367}},
 			wantErr: "bysetpos must be between 1 and 366 or -1 and -366",
 		},
 		{
-			desc: "Byday under",
-			rrule: ROption{Freq: YEARLY, Byweekday: []Weekday{{1, -54}}},
+			desc:    "Byday under",
+			rrule:   ROption{Freq: YEARLY, Byweekday: []Weekday{{1, -54}}},
 			wantErr: "byday must be between 1 and 53 or -1 and -53",
 		},
 		{
-			desc: "Byday over",
-			rrule: ROption{Freq: YEARLY, Byweekday: []Weekday{{1, 54}}},
+			desc:    "Byday over",
+			rrule:   ROption{Freq: YEARLY, Byweekday: []Weekday{{1, 54}}},
 			wantErr: "byday must be between 1 and 53 or -1 and -53",
 		},
 		{
-			desc: "Interval under",
-			rrule: ROption{Freq: DAILY, Interval: -1},
+			desc:    "Interval under",
+			rrule:   ROption{Freq: DAILY, Interval: -1},
 			wantErr: "interval must be greater than 0",
 		},
 	}

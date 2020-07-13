@@ -21,13 +21,6 @@ func timeToStr(time time.Time) string {
 	return time.UTC().Format(DateTimeFormat)
 }
 
-func timeToDtStartStr(time time.Time) string {
-	if time.Location().String() != "UTC" {
-		return fmt.Sprintf(";TZID=%s:%s", time.Location().String(), time.Format(LocalDateTimeFormat))
-	}
-	return fmt.Sprintf(":%s", time.Format(DateTimeFormat))
-}
-
 func strToTimeInLoc(str string, loc *time.Location) (time.Time, error) {
 	if len(str) == len(DateFormat) {
 		return time.ParseInLocation(DateFormat, str, loc)
@@ -123,11 +116,21 @@ func strToInts(value string) ([]int, error) {
 	return result, nil
 }
 
+// String returns RRULE string with DTSTART if exists. e.g.
+//   DTSTART;TZID=America/New_York:19970105T083000
+//   RRULE:FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=SU;BYHOUR=8,9;BYMINUTE=30
 func (option *ROption) String() string {
-	result := []string{fmt.Sprintf("FREQ=%v", option.Freq)}
-	if !option.Dtstart.IsZero() && !option.RFC {
-		result = append(result, fmt.Sprintf("DTSTART=%s", timeToStr(option.Dtstart)))
+	str := option.RRuleString()
+	if option.Dtstart.IsZero() {
+		return str
 	}
+
+	return fmt.Sprintf("DTSTART%s\n%s", timeToRFCDatetimeStr(option.Dtstart), str)
+}
+
+// RRuleString returns RRULE string exclude DTSTART
+func (option *ROption) RRuleString() string {
+	result := []string{fmt.Sprintf("FREQ=%v", option.Freq)}
 	if option.Interval != 0 {
 		result = append(result, fmt.Sprintf("INTERVAL=%v", option.Interval))
 	}
@@ -159,7 +162,7 @@ func (option *ROption) String() string {
 	return strings.Join(result, ";")
 }
 
-// StrToROption converts string to ROption
+// StrToROption converts string to ROption.
 func StrToROption(rfcString string) (*ROption, error) {
 	return StrToROptionInLocation(rfcString, time.UTC)
 }
@@ -169,13 +172,37 @@ func StrToROption(rfcString string) (*ROption, error) {
 // as a time in a given location (time zone)
 func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, error) {
 	rfcString = strings.TrimSpace(rfcString)
-	if len(rfcString) == 0 {
-		return nil, errors.New("empty string")
+	strs := strings.Split(rfcString, "\n")
+	var rruleStr, dtstartStr string
+	switch len(strs) {
+	case 1:
+		rruleStr = strs[0]
+	case 2:
+		dtstartStr = strs[0]
+		rruleStr = strs[1]
+	default:
+		return nil, errors.New("invalid RRULE string")
 	}
+
 	result := ROption{}
-	result.RFC = true
 	freqSet := false
-	for _, attr := range strings.Split(rfcString, ";") {
+
+	if dtstartStr != "" {
+		firstName, err := processRRuleName(dtstartStr)
+		if err != nil {
+			return nil, fmt.Errorf("expect DTSTART but: %s", err)
+		}
+		if firstName != "DTSTART" {
+			return nil, fmt.Errorf("expect DTSTART but: %s", firstName)
+		}
+
+		result.Dtstart, err = strToDtStart(dtstartStr[len(firstName)+1:], time.UTC)
+		if err != nil {
+			return nil, fmt.Errorf("strToDtStart failed: %s", err)
+		}
+	}
+
+	for _, attr := range strings.Split(rruleStr, ";") {
 		keyValue := strings.Split(attr, "=")
 		if len(keyValue) != 2 {
 			return nil, errors.New("wrong format")
@@ -190,7 +217,6 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 			result.Freq, e = strToFreq(value)
 			freqSet = true
 		case "DTSTART":
-			result.RFC = false
 			result.Dtstart, e = strToTimeInLoc(value, loc)
 		case "INTERVAL":
 			result.Interval, e = strconv.Atoi(value)
@@ -308,24 +334,17 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 		rule := line[len(name)+1:]
 
 		switch name {
-		case "RRULE", "EXRULE":
+		case "RRULE":
 			rOpt, err := StrToROption(rule)
 			if err != nil {
 				return nil, fmt.Errorf("StrToROption failed: %v", err)
-			}
-			if !set.GetDTStart().IsZero() {
-				rOpt.Dtstart = set.GetDTStart()
 			}
 			r, err := NewRRule(*rOpt)
 			if err != nil {
 				return nil, fmt.Errorf("NewRRule failed: %v", r)
 			}
 
-			if name == "RRULE" {
-				set.RRule(r)
-			} else {
-				set.ExRule(r)
-			}
+			set.RRule(r)
 		case "RDATE", "EXDATE":
 			ts, err := StrToDatesInLoc(rule, defaultLoc)
 			if err != nil {
@@ -338,12 +357,21 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 					set.ExDate(t)
 				}
 			}
-		default:
-			return nil, fmt.Errorf("unsupported property: %v", name)
 		}
 	}
 
 	return &set, nil
+}
+
+// https://tools.ietf.org/html/rfc5545#section-3.3.5
+// DTSTART:19970714T133000                       ; Local time
+// DTSTART:19970714T173000Z                      ; UTC time
+// DTSTART;TZID=America/New_York:19970714T133000 ; Local time and time zone reference
+func timeToRFCDatetimeStr(time time.Time) string {
+	if time.Location().String() != "UTC" {
+		return fmt.Sprintf(";TZID=%s:%s", time.Location().String(), time.Format(LocalDateTimeFormat))
+	}
+	return fmt.Sprintf(":%s", time.Format(DateTimeFormat))
 }
 
 // StrToDates is intended to parse RDATE and EXDATE properties supporting only

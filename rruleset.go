@@ -8,11 +8,10 @@ import (
 
 // Set allows more complex recurrence setups, mixing multiple rules, dates, exclusion rules, and exclusion dates
 type Set struct {
-	rrule   []*RRule
-	rdate   []time.Time
-	exrule  []*RRule
-	exdate  []time.Time
 	dtstart time.Time
+	rrule   *RRule
+	rdate   []time.Time
+	exdate  []time.Time
 }
 
 // Recurrence returns a slice of all the recurrence rules for a set
@@ -21,33 +20,29 @@ func (set *Set) Recurrence() []string {
 
 	if !set.dtstart.IsZero() {
 		// No colon, DTSTART may have TZID, which would require a semicolon after DTSTART
-		res = append(res, fmt.Sprintf("DTSTART%s", timeToDtStartStr(set.dtstart)))
+		res = append(res, fmt.Sprintf("DTSTART%s", timeToRFCDatetimeStr(set.dtstart)))
 	}
-	for _, item := range set.rrule {
-		res = append(res, fmt.Sprintf("RRULE:%s", item))
+
+	if set.rrule != nil {
+		res = append(res, fmt.Sprintf("RRULE:%s", set.rrule.OrigOptions.RRuleString()))
 	}
+
 	for _, item := range set.rdate {
 		res = append(res, fmt.Sprintf("RDATE:%s", timeToStr(item)))
 	}
-	for _, item := range set.exrule {
-		res = append(res, fmt.Sprintf("EXRULE:%s", item))
-	}
+
 	for _, item := range set.exdate {
 		res = append(res, fmt.Sprintf("EXDATE:%s", timeToStr(item)))
 	}
 	return res
 }
 
-// DTStart sets dtstart property for all rules in set
+// DTStart sets dtstart property for set
 func (set *Set) DTStart(dtstart time.Time) {
 	set.dtstart = dtstart.Truncate(time.Second)
 
-	for _, r := range set.rrule {
-		r.DTStart(set.dtstart)
-	}
-
-	for _, r := range set.exrule {
-		r.DTStart(set.dtstart)
+	if set.rrule != nil {
+		set.rrule.DTStart(set.dtstart)
 	}
 }
 
@@ -56,27 +51,33 @@ func (set *Set) GetDTStart() time.Time {
 	return set.dtstart
 }
 
-// RRule include the given rrule instance in the recurrence set generation.
+// RRule set the RRULE for set.
+// There is the only one RRULE in the set as https://tools.ietf.org/html/rfc5545#appendix-A.1
 func (set *Set) RRule(rrule *RRule) {
-	if !set.dtstart.IsZero() {
+	if !rrule.OrigOptions.Dtstart.IsZero() {
+		set.dtstart = rrule.dtstart
+	} else if !set.dtstart.IsZero() {
 		rrule.DTStart(set.dtstart)
 	}
-	set.rrule = append(set.rrule, rrule)
+	set.rrule = rrule
 }
 
-// GetRRule return the rrules in the set
-func (set *Set) GetRRule() []*RRule {
+// GetRRule returns the rrules in the set
+func (set *Set) GetRRule() *RRule {
 	return set.rrule
 }
 
 // RDate include the given datetime instance in the recurrence set generation.
 func (set *Set) RDate(rdate time.Time) {
-	set.rdate = append(set.rdate, rdate)
+	set.rdate = append(set.rdate, rdate.Truncate(time.Second))
 }
 
 // SetRDates sets explicitly added dates (rdates) in the set
 func (set *Set) SetRDates(rdates []time.Time) {
-	set.rdate = rdates
+	set.rdate = make([]time.Time, 0, len(rdates))
+	for _, rdate := range rdates {
+		set.rdate = append(set.rdate, rdate.Truncate(time.Second))
+	}
 }
 
 // GetRDate returns explicitly added dates (rdates) in the set
@@ -84,31 +85,19 @@ func (set *Set) GetRDate() []time.Time {
 	return set.rdate
 }
 
-// ExRule include the given rrule instance in the recurrence set exclusion list.
-// Dates which are part of the given recurrence rules will not be generated,
-// even if some inclusive rrule or rdate matches them.
-func (set *Set) ExRule(exrule *RRule) {
-	if !set.dtstart.IsZero() {
-		exrule.DTStart(set.dtstart)
-	}
-	set.exrule = append(set.exrule, exrule)
-}
-
-// GetExRule returns exclusion rrules list from in the set
-func (set *Set) GetExRule() []*RRule {
-	return set.exrule
-}
-
 // ExDate include the given datetime instance in the recurrence set exclusion list.
 // Dates included that way will not be generated,
 // even if some inclusive rrule or rdate matches them.
 func (set *Set) ExDate(exdate time.Time) {
-	set.exdate = append(set.exdate, exdate)
+	set.exdate = append(set.exdate, exdate.Truncate(time.Second))
 }
 
 // SetExDates sets explicitly excluded dates (exdates) in the set
 func (set *Set) SetExDates(exdates []time.Time) {
-	set.exdate = exdates
+	set.exdate = make([]time.Time, 0, len(exdates))
+	for _, exdate := range exdates {
+		set.exdate = append(set.exdate, exdate.Truncate(time.Second))
+	}
 }
 
 // GetExDate returns explicitly excluded dates (exdates) in the set
@@ -141,16 +130,13 @@ func (set *Set) Iterator() (next func() (time.Time, bool)) {
 
 	sort.Sort(timeSlice(set.rdate))
 	addGenList(&rlist, timeSliceIterator(set.rdate))
-	for _, r := range set.rrule {
-		addGenList(&rlist, r.Iterator())
+	if set.rrule != nil {
+		addGenList(&rlist, set.rrule.Iterator())
 	}
 	sort.Sort(genItemSlice(rlist))
 
 	sort.Sort(timeSlice(set.exdate))
 	addGenList(&exlist, timeSliceIterator(set.exdate))
-	for _, r := range set.exrule {
-		addGenList(&exlist, r.Iterator())
-	}
 	sort.Sort(genItemSlice(exlist))
 
 	lastdt := time.Time{}

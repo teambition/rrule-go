@@ -3702,6 +3702,24 @@ func TestWkStIntervalSU(t *testing.T) {
 	}
 }
 
+func TestDTStart(t *testing.T) {
+	dt := time.Now().UTC().Truncate(time.Second)
+	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 3})
+	want := []time.Time{dt, dt.AddDate(1, 0, 0), dt.AddDate(2, 0, 0)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+
+	dt = dt.AddDate(0, 0, 3)
+	r.DTStart(dt)
+	want = []time.Time{dt, dt.AddDate(1, 0, 0), dt.AddDate(2, 0, 0)}
+	value = r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
 func TestDTStartIsDate(t *testing.T) {
 	r, _ := NewRRule(ROption{Freq: DAILY,
 		Count:   3,

@@ -138,13 +138,13 @@ func NewRRule(arg ROption) (*RRule, error) {
 	if err := validateBounds(arg); err != nil {
 		return nil, err
 	}
-	r := RRule{}
-	r.OrigOptions = arg
-	r.build(arg)
+	r := buildRRule(arg)
 	return &r, nil
 }
 
-func (r *RRule) build(arg ROption) {
+func buildRRule(arg ROption) RRule {
+	r := RRule{}
+	r.OrigOptions = arg
 	// FREQ default to YEARLY
 	r.freq = arg.Freq
 
@@ -249,6 +249,7 @@ func (r *RRule) build(arg ROption) {
 	}
 
 	r.Options = arg
+	return r
 }
 
 // validateBounds checks the RRule's options are within the boundaries defined
@@ -872,11 +873,11 @@ func (r *RRule) After(dt time.Time, inc bool) time.Time {
 // DTStart set a new DTStart for the rule and recalculates the timeset if needed.
 func (r *RRule) DTStart(dt time.Time) {
 	r.OrigOptions.Dtstart = dt.Truncate(time.Second)
-	r.build(r.OrigOptions)
+	*r = buildRRule(r.OrigOptions)
 }
 
 // Until set a new Until for the rule and recalculates the timeset if needed.
 func (r *RRule) Until(ut time.Time) {
 	r.OrigOptions.Until = ut.Truncate(time.Second)
-	r.build(r.OrigOptions)
+	*r = buildRRule(r.OrigOptions)
 }

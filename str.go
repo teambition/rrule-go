@@ -196,7 +196,7 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 			return nil, fmt.Errorf("expect DTSTART but: %s", firstName)
 		}
 
-		result.Dtstart, err = strToDtStart(dtstartStr[len(firstName)+1:], time.UTC)
+		result.Dtstart, err = strToDtStart(dtstartStr[len(firstName)+1:], loc)
 		if err != nil {
 			return nil, fmt.Errorf("strToDtStart failed: %s", err)
 		}
@@ -312,7 +312,6 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 	if err != nil {
 		return nil, err
 	}
-
 	if firstName == "DTSTART" {
 		dt, err := strToDtStart(ss[0][len(firstName)+1:], defaultLoc)
 		if err != nil {
@@ -335,7 +334,7 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 
 		switch name {
 		case "RRULE":
-			rOpt, err := StrToROption(rule)
+			rOpt, err := StrToROptionInLocation(rule, defaultLoc)
 			if err != nil {
 				return nil, fmt.Errorf("StrToROption failed: %v", err)
 			}

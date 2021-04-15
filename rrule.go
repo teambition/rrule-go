@@ -547,279 +547,9 @@ func (info *iterInfo) gettimeset(freq Frequency, hour, minute, second int) (resu
 	return
 }
 
-// rIterator is a iterator of RRule
-type rIterator struct {
-	year     int
-	month    time.Month
-	day      int
-	hour     int
-	minute   int
-	second   int
-	weekday  int
-	ii       iterInfo
-	timeset  []time.Time
-	total    int
-	count    int
-	remain   []time.Time
-	finished bool
-}
-
-func (iterator *rIterator) generate() {
-	r := iterator.ii.rrule
-	for len(iterator.remain) == 0 {
-		// Get dayset with the right frequency
-		dayset, start, end := iterator.ii.getdayset(r.freq, iterator.year, iterator.month, iterator.day)
-
-		// Do the "hard" work ;-)
-		filtered := false
-		for _, i := range dayset[start:end] {
-			if len(r.bymonth) != 0 && !contains(r.bymonth, iterator.ii.mmask[*i]) ||
-				len(r.byweekno) != 0 && iterator.ii.wnomask[*i] == 0 ||
-				len(r.byweekday) != 0 && !contains(r.byweekday, iterator.ii.wdaymask[*i]) ||
-				len(iterator.ii.nwdaymask) != 0 && iterator.ii.nwdaymask[*i] == 0 ||
-				len(r.byeaster) != 0 && iterator.ii.eastermask[*i] == 0 ||
-				(len(r.bymonthday) != 0 || len(r.bynmonthday) != 0) &&
-					!contains(r.bymonthday, iterator.ii.mdaymask[*i]) &&
-					!contains(r.bynmonthday, iterator.ii.nmdaymask[*i]) ||
-				len(r.byyearday) != 0 &&
-					(*i < iterator.ii.yearlen &&
-						!contains(r.byyearday, *i+1) &&
-						!contains(r.byyearday, -iterator.ii.yearlen+*i) ||
-						*i >= iterator.ii.yearlen &&
-							!contains(r.byyearday, *i+1-iterator.ii.yearlen) &&
-							!contains(r.byyearday, -iterator.ii.nextyearlen+*i-iterator.ii.yearlen)) {
-				dayset[*i] = nil
-				filtered = true
-			}
-		}
-		// Output results
-		if len(r.bysetpos) != 0 && len(iterator.timeset) != 0 {
-			poslist := []time.Time{}
-			for _, pos := range r.bysetpos {
-				var daypos, timepos int
-				if pos < 0 {
-					daypos, timepos = divmod(pos, len(iterator.timeset))
-				} else {
-					daypos, timepos = divmod(pos-1, len(iterator.timeset))
-				}
-				temp := []int{}
-				for _, x := range dayset[start:end] {
-					if x != nil {
-						temp = append(temp, *x)
-					}
-				}
-				i, err := pySubscript(temp, daypos)
-				if err != nil {
-					continue
-				}
-				timeTemp := iterator.timeset[timepos]
-				date := iterator.ii.firstyday.AddDate(0, 0, i)
-				res := time.Date(date.Year(), date.Month(), date.Day(),
-					timeTemp.Hour(), timeTemp.Minute(), timeTemp.Second(),
-					timeTemp.Nanosecond(), timeTemp.Location())
-				if !timeContains(poslist, res) {
-					poslist = append(poslist, res)
-				}
-			}
-			sort.Sort(timeSlice(poslist))
-			for _, res := range poslist {
-				if !r.until.IsZero() && res.After(r.until) {
-					r.len = iterator.total
-					iterator.finished = true
-					return
-				} else if !res.Before(r.dtstart) {
-					iterator.total++
-					iterator.remain = append(iterator.remain, res)
-					if iterator.count != 0 {
-						iterator.count--
-						if iterator.count == 0 {
-							r.len = iterator.total
-							iterator.finished = true
-							return
-						}
-					}
-				}
-			}
-		} else {
-			for _, i := range dayset[start:end] {
-				if i == nil {
-					continue
-				}
-				date := iterator.ii.firstyday.AddDate(0, 0, *i)
-				for _, timeTemp := range iterator.timeset {
-					res := time.Date(date.Year(), date.Month(), date.Day(),
-						timeTemp.Hour(), timeTemp.Minute(), timeTemp.Second(),
-						timeTemp.Nanosecond(), timeTemp.Location())
-					if !r.until.IsZero() && res.After(r.until) {
-						r.len = iterator.total
-						iterator.finished = true
-						return
-					} else if !res.Before(r.dtstart) {
-						iterator.total++
-						iterator.remain = append(iterator.remain, res)
-						if iterator.count != 0 {
-							iterator.count--
-							if iterator.count == 0 {
-								r.len = iterator.total
-								iterator.finished = true
-								return
-							}
-						}
-					}
-				}
-			}
-		}
-		// Handle frequency and interval
-		fixday := false
-		if r.freq == YEARLY {
-			iterator.year += r.interval
-			if iterator.year > MAXYEAR {
-				r.len = iterator.total
-				iterator.finished = true
-				return
-			}
-			iterator.ii.rebuild(iterator.year, iterator.month)
-		} else if r.freq == MONTHLY {
-			iterator.month += time.Month(r.interval)
-			if iterator.month > 12 {
-				div, mod := divmod(int(iterator.month), 12)
-				iterator.month = time.Month(mod)
-				iterator.year += div
-				if iterator.month == 0 {
-					iterator.month = 12
-					iterator.year--
-				}
-				if iterator.year > MAXYEAR {
-					r.len = iterator.total
-					iterator.finished = true
-					return
-				}
-			}
-			iterator.ii.rebuild(iterator.year, iterator.month)
-		} else if r.freq == WEEKLY {
-			if r.wkst > iterator.weekday {
-				iterator.day += -(iterator.weekday + 1 + (6 - r.wkst)) + r.interval*7
-			} else {
-				iterator.day += -(iterator.weekday - r.wkst) + r.interval*7
-			}
-			iterator.weekday = r.wkst
-			fixday = true
-		} else if r.freq == DAILY {
-			iterator.day += r.interval
-			fixday = true
-		} else if r.freq == HOURLY {
-			if filtered {
-				// Jump to one iteration before next day
-				iterator.hour += ((23 - iterator.hour) / r.interval) * r.interval
-			}
-			for {
-				iterator.hour += r.interval
-				div, mod := divmod(iterator.hour, 24)
-				if div != 0 {
-					iterator.hour = mod
-					iterator.day += div
-					fixday = true
-				}
-				if len(r.byhour) == 0 || contains(r.byhour, iterator.hour) {
-					break
-				}
-			}
-			iterator.timeset = iterator.ii.gettimeset(r.freq, iterator.hour, iterator.minute, iterator.second)
-		} else if r.freq == MINUTELY {
-			if filtered {
-				// Jump to one iteration before next day
-				iterator.minute += ((1439 - (iterator.hour*60 + iterator.minute)) / r.interval) * r.interval
-			}
-			for {
-				iterator.minute += r.interval
-				div, mod := divmod(iterator.minute, 60)
-				if div != 0 {
-					iterator.minute = mod
-					iterator.hour += div
-					div, mod = divmod(iterator.hour, 24)
-					if div != 0 {
-						iterator.hour = mod
-						iterator.day += div
-						fixday = true
-						filtered = false
-					}
-				}
-				if (len(r.byhour) == 0 || contains(r.byhour, iterator.hour)) &&
-					(len(r.byminute) == 0 || contains(r.byminute, iterator.minute)) {
-					break
-				}
-			}
-			iterator.timeset = iterator.ii.gettimeset(r.freq, iterator.hour, iterator.minute, iterator.second)
-		} else if r.freq == SECONDLY {
-			if filtered {
-				// Jump to one iteration before next day
-				iterator.second += (((86399 - (iterator.hour*3600 + iterator.minute*60 + iterator.second)) / r.interval) * r.interval)
-			}
-			for {
-				iterator.second += r.interval
-				div, mod := divmod(iterator.second, 60)
-				if div != 0 {
-					iterator.second = mod
-					iterator.minute += div
-					div, mod = divmod(iterator.minute, 60)
-					if div != 0 {
-						iterator.minute = mod
-						iterator.hour += div
-						div, mod = divmod(iterator.hour, 24)
-						if div != 0 {
-							iterator.hour = mod
-							iterator.day += div
-							fixday = true
-						}
-					}
-				}
-				if (len(r.byhour) == 0 || contains(r.byhour, iterator.hour)) &&
-					(len(r.byminute) == 0 || contains(r.byminute, iterator.minute)) &&
-					(len(r.bysecond) == 0 || contains(r.bysecond, iterator.second)) {
-					break
-				}
-			}
-			iterator.timeset = iterator.ii.gettimeset(r.freq, iterator.hour, iterator.minute, iterator.second)
-		}
-		if fixday && iterator.day > 28 {
-			daysinmonth := daysIn(iterator.month, iterator.year)
-			if iterator.day > daysinmonth {
-				for iterator.day > daysinmonth {
-					iterator.day -= daysinmonth
-					iterator.month++
-					if iterator.month == 13 {
-						iterator.month = 1
-						iterator.year++
-						if iterator.year > MAXYEAR {
-							r.len = iterator.total
-							iterator.finished = true
-							return
-						}
-					}
-					daysinmonth = daysIn(iterator.month, iterator.year)
-				}
-				iterator.ii.rebuild(iterator.year, iterator.month)
-			}
-		}
-	}
-}
-
-// next returns next occurrence and true if it exists, else zero value and false
-func (iterator *rIterator) next() (time.Time, bool) {
-	if !iterator.finished {
-		iterator.generate()
-	}
-	if len(iterator.remain) == 0 {
-		return time.Time{}, false
-	}
-	value := iterator.remain[0]
-	iterator.remain = iterator.remain[1:]
-	return value, true
-}
-
 // Iterator return an iterator for RRule
-func (r *RRule) Iterator() Next {
-	iterator := rIterator{}
+func (r *RRule) Iterator() Iterator {
+	iterator := &rIterator{}
 	iterator.year, iterator.month, iterator.day = r.dtstart.Date()
 	iterator.hour, iterator.minute, iterator.second = r.dtstart.Clock()
 	iterator.weekday = toPyWeekday(r.dtstart.Weekday())
@@ -839,19 +569,19 @@ func (r *RRule) Iterator() Next {
 		}
 	}
 	iterator.count = r.count
-	return iterator.next
+	return iterator
 }
 
 // All returns all occurrences of the RRule.
 func (r *RRule) All() []time.Time {
-	return all(r.Iterator())
+	return all(r.Iterator().Next)
 }
 
 // Between returns all the occurrences of the RRule between after and before.
 // The inc keyword defines what happens if after and/or before are themselves occurrences.
 // With inc == True, they will be included in the list, if they are found in the recurrence set.
 func (r *RRule) Between(after, before time.Time, inc bool) []time.Time {
-	return between(r.Iterator(), after, before, inc)
+	return between(r.Iterator().Next, after, before, inc)
 }
 
 // Before returns the last recurrence before the given datetime instance,
@@ -859,7 +589,7 @@ func (r *RRule) Between(after, before time.Time, inc bool) []time.Time {
 // The inc keyword defines what happens if dt is an occurrence.
 // With inc == True, if dt itself is an occurrence, it will be returned.
 func (r *RRule) Before(dt time.Time, inc bool) time.Time {
-	return before(r.Iterator(), dt, inc)
+	return before(r.Iterator().Next, dt, inc)
 }
 
 // After returns the first recurrence after the given datetime instance,
@@ -867,7 +597,7 @@ func (r *RRule) Before(dt time.Time, inc bool) time.Time {
 // The inc keyword defines what happens if dt is an occurrence.
 // With inc == True, if dt itself is an occurrence, it will be returned.
 func (r *RRule) After(dt time.Time, inc bool) time.Time {
-	return after(r.Iterator(), dt, inc)
+	return after(r.Iterator().Next, dt, inc)
 }
 
 // DTStart set a new DTSTART for the rule and recalculates the timeset if needed.

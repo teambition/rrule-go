@@ -11,10 +11,6 @@ const (
 	MAXYEAR = 9999
 )
 
-// Next is a generator of time.Time.
-// It returns false of Ok if there is no value to generate.
-type Next func() (value time.Time, ok bool)
-
 type timeSlice []time.Time
 
 func (s timeSlice) Len() int           { return len(s) }

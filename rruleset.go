@@ -131,7 +131,7 @@ func (set *Set) Iterator() (next func() (time.Time, bool)) {
 	sort.Sort(timeSlice(set.rdate))
 	addGenList(&rlist, timeSliceIterator(set.rdate))
 	if set.rrule != nil {
-		addGenList(&rlist, set.rrule.Iterator())
+		addGenList(&rlist, set.rrule.Iterator().Next)
 	}
 	sort.Sort(genItemSlice(rlist))
 

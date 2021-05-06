@@ -46,7 +46,7 @@ func (set *Set) DTStart(dtstart time.Time) {
 	}
 }
 
-// GetDTStart gets dtstart for set
+// GetDTStart gets DTSTART for set
 func (set *Set) GetDTStart() time.Time {
 	return set.dtstart
 }

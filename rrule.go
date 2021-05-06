@@ -870,14 +870,24 @@ func (r *RRule) After(dt time.Time, inc bool) time.Time {
 	return after(r.Iterator(), dt, inc)
 }
 
-// DTStart set a new DTStart for the rule and recalculates the timeset if needed.
+// DTStart set a new DTSTART for the rule and recalculates the timeset if needed.
 func (r *RRule) DTStart(dt time.Time) {
 	r.OrigOptions.Dtstart = dt.Truncate(time.Second)
 	*r = buildRRule(r.OrigOptions)
 }
 
-// Until set a new Until for the rule and recalculates the timeset if needed.
+// GetDTStart gets DTSTART time for rrule
+func (r *RRule) GetDTStart() time.Time {
+	return r.dtstart
+}
+
+// Until set a new UNTIL for the rule and recalculates the timeset if needed.
 func (r *RRule) Until(ut time.Time) {
 	r.OrigOptions.Until = ut.Truncate(time.Second)
 	*r = buildRRule(r.OrigOptions)
+}
+
+// GetUntil gets UNTIL time for rrule
+func (r *RRule) GetUntil() time.Time {
+	return r.until
 }

@@ -38,7 +38,7 @@ func (f Frequency) String() string {
 		"HOURLY", "MINUTELY", "SECONDLY"}[f]
 }
 
-func strToFreq(str string) (Frequency, error) {
+func StrToFreq(str string) (Frequency, error) {
 	freqMap := map[string]Frequency{
 		"YEARLY": YEARLY, "MONTHLY": MONTHLY, "WEEKLY": WEEKLY, "DAILY": DAILY,
 		"HOURLY": HOURLY, "MINUTELY": MINUTELY, "SECONDLY": SECONDLY,
@@ -214,7 +214,7 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 		var e error
 		switch key {
 		case "FREQ":
-			result.Freq, e = strToFreq(value)
+			result.Freq, e = StrToFreq(value)
 			freqSet = true
 		case "DTSTART":
 			result.Dtstart, e = strToTimeInLoc(value, loc)

@@ -196,9 +196,9 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 			return nil, fmt.Errorf("expect DTSTART but: %s", firstName)
 		}
 
-		result.Dtstart, err = strToDtStart(dtstartStr[len(firstName)+1:], loc)
+		result.Dtstart, err = StrToDtStart(dtstartStr[len(firstName)+1:], loc)
 		if err != nil {
-			return nil, fmt.Errorf("strToDtStart failed: %s", err)
+			return nil, fmt.Errorf("StrToDtStart failed: %s", err)
 		}
 	}
 
@@ -313,9 +313,9 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 		return nil, err
 	}
 	if firstName == "DTSTART" {
-		dt, err := strToDtStart(ss[0][len(firstName)+1:], defaultLoc)
+		dt, err := StrToDtStart(ss[0][len(firstName)+1:], defaultLoc)
 		if err != nil {
-			return nil, fmt.Errorf("strToDtStart failed: %v", err)
+			return nil, fmt.Errorf("StrToDtStart failed: %v", err)
 		}
 		// default location should be taken from DTSTART property to correctly
 		// parse local times met in RDATE,EXDATE and other rules
@@ -434,9 +434,9 @@ func processRRuleName(line string) (string, error) {
 	return name, nil
 }
 
-// strToDtStart accepts string with format: "(TZID={timezone}:)?{time}" and parses it to a date
+// StrToDtStart accepts string with format: "(TZID={timezone}:)?{time}" and parses it to a date
 // may be used to parse DTSTART rules, without the DTSTART; part.
-func strToDtStart(str string, defaultLoc *time.Location) (time.Time, error) {
+func StrToDtStart(str string, defaultLoc *time.Location) (time.Time, error) {
 	tmp := strings.Split(str, ":")
 	if len(tmp) > 2 || len(tmp) == 0 {
 		return time.Time{}, fmt.Errorf("bad format")

@@ -8,10 +8,11 @@ import (
 
 // Set allows more complex recurrence setups, mixing multiple rules, dates, exclusion rules, and exclusion dates
 type Set struct {
-	dtstart time.Time
-	rrule   *RRule
-	rdate   []time.Time
-	exdate  []time.Time
+	dtstart          time.Time
+	rrule            *RRule
+	rdate            []time.Time
+	exdate           []time.Time
+	customAttributes map[string]string
 }
 
 // Recurrence returns a slice of all the recurrence rules for a set
@@ -103,6 +104,10 @@ func (set *Set) SetExDates(exdates []time.Time) {
 // GetExDate returns explicitly excluded dates (exdates) in the set
 func (set *Set) GetExDate() []time.Time {
 	return set.exdate
+}
+
+func (set *Set) GetCustomAttributes() map[string]string {
+	return set.customAttributes
 }
 
 type genItem struct {

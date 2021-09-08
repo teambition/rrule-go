@@ -356,6 +356,16 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 					set.ExDate(t)
 				}
 			}
+		default:
+			if strings.HasPrefix(name, "X-") {
+				if set.customAttributes == nil {
+					set.customAttributes = make(map[string]string)
+				}
+				if _, has := set.customAttributes[name]; has {
+					return nil, fmt.Errorf("custom field %s duplicated", name)
+				}
+				set.customAttributes[name] = rule
+			}
 		}
 	}
 

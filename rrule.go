@@ -89,22 +89,23 @@ var (
 
 // ROption offers options to construct a RRule instance
 type ROption struct {
-	Freq       Frequency
-	Dtstart    time.Time
-	Interval   int
-	Wkst       Weekday
-	Count      int
-	Until      time.Time
-	Bysetpos   []int
-	Bymonth    []int
-	Bymonthday []int
-	Byyearday  []int
-	Byweekno   []int
-	Byweekday  []Weekday
-	Byhour     []int
-	Byminute   []int
-	Bysecond   []int
-	Byeaster   []int
+	Freq             Frequency
+	Dtstart          time.Time
+	Interval         int
+	Wkst             Weekday
+	Count            int
+	Until            time.Time
+	Bysetpos         []int
+	Bymonth          []int
+	Bymonthday       []int
+	Byyearday        []int
+	Byweekno         []int
+	Byweekday        []Weekday
+	Byhour           []int
+	Byminute         []int
+	Bysecond         []int
+	Byeaster         []int
+	CustomAttributes map[string]string
 }
 
 // RRule offers a small, complete, and very fast, implementation of the recurrence rules
@@ -130,6 +131,7 @@ type RRule struct {
 	bysecond                []int
 	byeaster                []int
 	timeset                 []time.Time
+	customAttributes        map[string]string
 	len                     int
 }
 
@@ -246,6 +248,12 @@ func buildRRule(arg ROption) RRule {
 			}
 		}
 		sort.Sort(timeSlice(r.timeset))
+	}
+
+	if arg.CustomAttributes == nil {
+		r.customAttributes = make(map[string]string)
+	} else {
+		r.customAttributes = arg.CustomAttributes
 	}
 
 	r.Options = arg
@@ -890,4 +898,9 @@ func (r *RRule) Until(ut time.Time) {
 // GetUntil gets UNTIL time for rrule
 func (r *RRule) GetUntil() time.Time {
 	return r.until
+}
+
+// GetCustomAttributes gets custom X-ATTRIBUTES
+func (r *RRule) GetCustomAttributes() map[string]string {
+	return r.customAttributes
 }

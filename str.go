@@ -247,7 +247,17 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 		case "BYEASTER":
 			result.Byeaster, e = strToInts(value)
 		default:
-			return nil, errors.New("unknown RRULE property: " + key)
+			if strings.HasPrefix(key, "X-") {
+				if result.CustomAttributes == nil {
+					result.CustomAttributes = make(map[string]string)
+				}
+				if _, has := result.CustomAttributes[key]; has {
+					return nil, fmt.Errorf("custom field %s duplicated", key)
+				}
+				result.CustomAttributes[key] = value
+			} else {
+				return nil, errors.New("unknown RRULE property: " + key)
+			}
 		}
 		if e != nil {
 			return nil, e
@@ -342,7 +352,6 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 			if err != nil {
 				return nil, fmt.Errorf("NewRRule failed: %v", r)
 			}
-
 			set.RRule(r)
 		case "RDATE", "EXDATE":
 			ts, err := StrToDatesInLoc(rule, defaultLoc)

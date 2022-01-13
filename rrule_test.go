@@ -3923,3 +3923,88 @@ func TestRuleChangeDTStartTimezoneRespected(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkIterator(b *testing.B) {
+	type testCase struct {
+		Name   string
+		Option ROption
+	}
+
+	for _, c := range []testCase{
+		{
+			Name: "simple secondly",
+			Option: ROption{
+				Dtstart: time.Date(2000, 03, 22, 12, 0, 0, 0, time.UTC),
+				Freq:    SECONDLY,
+			},
+		},
+		{
+			Name: "simple minutely",
+			Option: ROption{
+				Dtstart: time.Date(2000, 03, 22, 12, 0, 0, 0, time.UTC),
+				Freq:    MINUTELY,
+			},
+		},
+		{
+			Name: "simple hourly",
+			Option: ROption{
+				Dtstart: time.Date(2000, 03, 22, 12, 0, 0, 0, time.UTC),
+				Freq:    HOURLY,
+			},
+		},
+		{
+			Name: "simple daily",
+			Option: ROption{
+				Dtstart: time.Date(2000, 03, 22, 12, 0, 0, 0, time.UTC),
+				Freq:    DAILY,
+			},
+		},
+		{
+			Name: "simple weekly",
+			Option: ROption{
+				Dtstart: time.Date(2000, 03, 22, 12, 0, 0, 0, time.UTC),
+				Freq:    WEEKLY,
+			},
+		},
+		{
+			Name: "simple monthly",
+			Option: ROption{
+				Dtstart: time.Date(2000, 03, 22, 12, 0, 0, 0, time.UTC),
+				Freq:    MONTHLY,
+			},
+		},
+		{
+			Name: "simple yearly",
+			Option: ROption{
+				Dtstart: time.Date(2000, 03, 22, 12, 0, 0, 0, time.UTC),
+				Freq:    YEARLY,
+			},
+		},
+	} {
+		c := c
+		b.Run(c.Name, func(b *testing.B) {
+			rrule, err := NewRRule(c.Option)
+			if err != nil {
+				b.Errorf("failed to init rrule: %s", err)
+			}
+
+			for i := 0; i < b.N; i++ {
+				res := iterateNum(rrule.Iterator(), 200)
+				if res.IsZero() {
+					b.Error("expected not zero iterator result")
+				}
+			}
+		})
+	}
+}
+
+func iterateNum(iter Next, num int) (last time.Time) {
+	for i := 0; i < num; i++ {
+		var ok bool
+		last, ok = iter()
+		if !ok {
+			return time.Time{}
+		}
+	}
+	return last
+}

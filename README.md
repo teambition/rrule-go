@@ -72,6 +72,7 @@ func exampleRRuleSet() {
 	r, _ := rrule.NewRRule(rrule.ROption{
 		Freq:    rrule.DAILY,
 		Count:   7,
+		Byweekday: []rrule.Weekday{rrule.MO, rrule.TU, rrule.WE, rrule.TH, rrule.FR},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
 	set.RRule(r)
 	fmt.Println(set.All())
@@ -79,9 +80,9 @@ func exampleRRuleSet() {
 	//  1997-09-03 09:00:00 +0000 UTC
 	//  1997-09-04 09:00:00 +0000 UTC
 	//  1997-09-05 09:00:00 +0000 UTC
-	//  1997-09-06 09:00:00 +0000 UTC
-	//  1997-09-07 09:00:00 +0000 UTC
-	//  1997-09-08 09:00:00 +0000 UTC]
+	//  1997-09-08 09:00:00 +0000 UTC
+	//  1997-09-09 09:00:00 +0000 UTC
+	//  1997-09-10 09:00:00 +0000 UTC]
 
 	fmt.Println("\nWeekly, for 4 weeks, plus one time on day 7, and not on day 16.")
 	set = rrule.Set{}

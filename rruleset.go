@@ -28,11 +28,11 @@ func (set *Set) Recurrence() []string {
 	}
 
 	for _, item := range set.rdate {
-		res = append(res, fmt.Sprintf("RDATE:%s", timeToStr(item)))
+		res = append(res, fmt.Sprintf("RDATE%s", timeToRFCDatetimeStr(item)))
 	}
 
 	for _, item := range set.exdate {
-		res = append(res, fmt.Sprintf("EXDATE:%s", timeToStr(item)))
+		res = append(res, fmt.Sprintf("EXDATE%s", timeToRFCDatetimeStr(item)))
 	}
 	return res
 }

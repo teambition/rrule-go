@@ -331,7 +331,7 @@ func TestSetParseLocalTimes(t *testing.T) {
 			"DTSTART;TZID=Europe/Moscow:20180220T090000",
 			"RDATE;VALUE=DATE-TIME:20180223T100000",
 		}
-		expected := "DTSTART;TZID=Europe/Moscow:20180220T090000\nRDATE:20180223T070000Z"
+		expected := "DTSTART;TZID=Europe/Moscow:20180220T090000\nRDATE;TZID=Europe/Moscow:20180223T100000"
 		s, err := StrSliceToRRuleSet(input)
 		if err != nil {
 			t.Error(err)
@@ -378,17 +378,34 @@ func TestSetParseLocalTimes(t *testing.T) {
 }
 
 func TestRDateValueDateStr(t *testing.T) {
-	input := []string{
-		"RDATE;VALUE=DATE:20180223",
-	}
-	s, err := StrSliceToRRuleSet(input)
-	if err != nil {
-		t.Error(err)
-	}
-	d := s.GetRDate()[0]
-	if !d.Equal(time.Date(2018, 02, 23, 0, 0, 0, 0, time.UTC)) {
-		t.Error("Bad time parsed: ", d)
-	}
+	t.Run("DefaultToUTC", func(t *testing.T) {
+		input := []string{
+			"RDATE;VALUE=DATE:20180223",
+		}
+		s, err := StrSliceToRRuleSet(input)
+		if err != nil {
+			t.Error(err)
+		}
+		d := s.GetRDate()[0]
+		if !d.Equal(time.Date(2018, 02, 23, 0, 0, 0, 0, time.UTC)) {
+			t.Error("Bad time parsed: ", d)
+		}
+	})
+
+	t.Run("PreserveExplicitTimezone", func(t *testing.T) {
+		denver, _ := time.LoadLocation("America/Denver")
+		input := []string{
+			"RDATE;VALUE=DATE;TZID=America/Denver:20180223",
+		}
+		s, err := StrSliceToRRuleSet(input)
+		if err != nil {
+			t.Error(err)
+		}
+		d := s.GetRDate()[0]
+		if !d.Equal(time.Date(2018, 02, 23, 0, 0, 0, 0, denver)) {
+			t.Error("Bad time parsed: ", d)
+		}
+	})
 }
 
 func TestStrSetEmptySliceParse(t *testing.T) {

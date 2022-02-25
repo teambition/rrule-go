@@ -30,23 +30,27 @@ func TestSetOverlapping(t *testing.T) {
 }
 
 func TestSetString(t *testing.T) {
+	moscow, _ := time.LoadLocation("Europe/Moscow")
+	newYork, _ := time.LoadLocation("America/New_York")
+	tehran, _ := time.LoadLocation("Asia/Tehran")
+
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},
 		Dtstart: time.Date(1997, 9, 2, 8, 0, 0, 0, time.UTC)})
 	set.RRule(r)
 	set.ExDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC))
-	set.ExDate(time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC))
-	set.ExDate(time.Date(1997, 9, 18, 9, 0, 0, 0, time.UTC))
-	set.RDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC))
+	set.ExDate(time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC).In(moscow))
+	set.ExDate(time.Date(1997, 9, 18, 9, 0, 0, 0, time.UTC).In(newYork))
+	set.RDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC).In(tehran))
 	set.RDate(time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC))
 
 	want := `DTSTART:19970902T080000Z
 RRULE:FREQ=YEARLY;COUNT=1;BYDAY=TU
-RDATE:19970904T090000Z
+RDATE;TZID=Asia/Tehran:19970904T133000
 RDATE:19970909T090000Z
 EXDATE:19970904T090000Z
-EXDATE:19970911T090000Z
-EXDATE:19970918T090000Z`
+EXDATE;TZID=Europe/Moscow:19970911T130000
+EXDATE;TZID=America/New_York:19970918T050000`
 	value := set.String()
 	if want != value {
 		t.Errorf("get %v, want %v", value, want)

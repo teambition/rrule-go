@@ -1,3 +1,5 @@
+// 2017-2022, Teambition. All rights reserved.
+
 package rrule
 
 import (
@@ -87,7 +89,8 @@ var (
 	SU = Weekday{weekday: 6}
 )
 
-// ROption offers options to construct a RRule instance
+// ROption offers options to construct a RRule instance.
+// For performance, it is strongly recommended providing explicit ROption.Dtstart, which defaults to `time.Now().UTC()`.
 type ROption struct {
 	Freq       Frequency
 	Dtstart    time.Time
@@ -928,6 +931,7 @@ func (r *RRule) After(dt time.Time, inc bool) time.Time {
 }
 
 // DTStart set a new DTSTART for the rule and recalculates the timeset if needed.
+// Default to `time.Now().UTC()`.
 func (r *RRule) DTStart(dt time.Time) {
 	r.OrigOptions.Dtstart = dt.Truncate(time.Second)
 	*r = buildRRule(r.OrigOptions)
@@ -939,6 +943,7 @@ func (r *RRule) GetDTStart() time.Time {
 }
 
 // Until set a new UNTIL for the rule and recalculates the timeset if needed.
+// Default to `Dtstart.Add(time.Duration(1<<63 - 1))`, approximately 290 years.
 func (r *RRule) Until(ut time.Time) {
 	r.OrigOptions.Until = ut.Truncate(time.Second)
 	*r = buildRRule(r.OrigOptions)

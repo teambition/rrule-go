@@ -911,7 +911,7 @@ func (r *RRule) All() []time.Time {
 // The inc keyword defines what happens if after and/or before are themselves occurrences.
 // With inc == True, they will be included in the list, if they are found in the recurrence set.
 func (r *RRule) Between(after, before time.Time, inc bool) []time.Time {
-	return between(r.Iterator(), after, before, inc)
+	return between(r.Iterator(), after.Truncate(time.Second), before.Truncate(time.Second), inc)
 }
 
 // Before returns the last recurrence before the given datetime instance,
@@ -919,7 +919,7 @@ func (r *RRule) Between(after, before time.Time, inc bool) []time.Time {
 // The inc keyword defines what happens if dt is an occurrence.
 // With inc == True, if dt itself is an occurrence, it will be returned.
 func (r *RRule) Before(dt time.Time, inc bool) time.Time {
-	return before(r.Iterator(), dt, inc)
+	return before(r.Iterator(), dt.Truncate(time.Second), inc)
 }
 
 // After returns the first recurrence after the given datetime instance,
@@ -927,7 +927,7 @@ func (r *RRule) Before(dt time.Time, inc bool) time.Time {
 // The inc keyword defines what happens if dt is an occurrence.
 // With inc == True, if dt itself is an occurrence, it will be returned.
 func (r *RRule) After(dt time.Time, inc bool) time.Time {
-	return after(r.Iterator(), dt, inc)
+	return after(r.Iterator(), dt.Truncate(time.Second), inc)
 }
 
 // DTStart set a new DTSTART for the rule and recalculates the timeset if needed.

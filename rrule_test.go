@@ -3807,6 +3807,17 @@ func TestBeforeInc(t *testing.T) {
 	}
 }
 
+func TestBeforeIncWithNanosecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		// Count:5,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 1000, time.UTC)})
+	want := time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC)
+	value := r.Before(time.Date(1997, 9, 5, 9, 0, 0, 1000, time.UTC), true)
+	if value != want {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
 func TestAfter(t *testing.T) {
 	r, _ := NewRRule(ROption{Freq: DAILY,
 		// Count:5,
@@ -3825,6 +3836,17 @@ func TestAfterInc(t *testing.T) {
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
 	want := time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)
 	value := r.After(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC), true)
+	if value != want {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestAfterIncWithNanosecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		// Count:5,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 1000, time.UTC)})
+	want := time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)
+	value := r.After(time.Date(1997, 9, 4, 9, 0, 0, 1000, time.UTC), true)
 	if value != want {
 		t.Errorf("get %v, want %v", value, want)
 	}
@@ -3853,6 +3875,21 @@ func TestBetweenInc(t *testing.T) {
 		time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC),
 		time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC)}
 	value := r.Between(time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC), time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC), true)
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
+func TestBetweenIncWithNanoSecond(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: DAILY,
+		// Count:5,
+		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 1000, time.UTC)})
+	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC)}
+	value := r.Between(time.Date(1997, 9, 2, 9, 0, 0, 1000, time.UTC), time.Date(1997, 9, 6, 9, 0, 0, 1000, time.UTC), true)
 	if !timesEqual(value, want) {
 		t.Errorf("get %v, want %v", value, want)
 	}

@@ -90,7 +90,7 @@ var (
 )
 
 // ROption offers options to construct a RRule instance.
-// For performance, it is strongly recommended providing explicit ROption.Dtstart, which defaults to `time.Now().UTC()`.
+// For performance, it is strongly recommended providing explicit ROption.Dtstart, which defaults to `time.Now().UTC().Truncate(time.Second)`.
 type ROption struct {
 	Freq       Frequency
 	Dtstart    time.Time
@@ -903,6 +903,7 @@ func (r *RRule) Iterator() Next {
 }
 
 // All returns all occurrences of the RRule.
+// It is only supported second precision.
 func (r *RRule) All() []time.Time {
 	return all(r.Iterator())
 }
@@ -910,6 +911,7 @@ func (r *RRule) All() []time.Time {
 // Between returns all the occurrences of the RRule between after and before.
 // The inc keyword defines what happens if after and/or before are themselves occurrences.
 // With inc == True, they will be included in the list, if they are found in the recurrence set.
+// It is only supported second precision.
 func (r *RRule) Between(after, before time.Time, inc bool) []time.Time {
 	return between(r.Iterator(), after, before, inc)
 }
@@ -918,6 +920,7 @@ func (r *RRule) Between(after, before time.Time, inc bool) []time.Time {
 // or time.Time's zero value if no recurrence match.
 // The inc keyword defines what happens if dt is an occurrence.
 // With inc == True, if dt itself is an occurrence, it will be returned.
+// It is only supported second precision.
 func (r *RRule) Before(dt time.Time, inc bool) time.Time {
 	return before(r.Iterator(), dt, inc)
 }
@@ -926,12 +929,14 @@ func (r *RRule) Before(dt time.Time, inc bool) time.Time {
 // or time.Time's zero value if no recurrence match.
 // The inc keyword defines what happens if dt is an occurrence.
 // With inc == True, if dt itself is an occurrence, it will be returned.
+// It is only supported second precision.
 func (r *RRule) After(dt time.Time, inc bool) time.Time {
 	return after(r.Iterator(), dt, inc)
 }
 
 // DTStart set a new DTSTART for the rule and recalculates the timeset if needed.
-// Default to `time.Now().UTC()`.
+// It will be truncated to second precision.
+// Default to `time.Now().UTC().Truncate(time.Second)`.
 func (r *RRule) DTStart(dt time.Time) {
 	r.OrigOptions.Dtstart = dt.Truncate(time.Second)
 	*r = buildRRule(r.OrigOptions)
@@ -943,6 +948,7 @@ func (r *RRule) GetDTStart() time.Time {
 }
 
 // Until set a new UNTIL for the rule and recalculates the timeset if needed.
+// It will be truncated to second precision.
 // Default to `Dtstart.Add(time.Duration(1<<63 - 1))`, approximately 290 years.
 func (r *RRule) Until(ut time.Time) {
 	r.OrigOptions.Until = ut.Truncate(time.Second)

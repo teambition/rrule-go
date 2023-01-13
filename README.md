@@ -2,10 +2,11 @@
 
 Go library for working with recurrence rules for calendar dates.
 
-[![Build Status](http://img.shields.io/travis/teambition/rrule-go.svg?style=flat-square)](https://travis-ci.org/teambition/rrule-go)
-[![Coverage Status](http://img.shields.io/coveralls/teambition/rrule-go.svg?style=flat-square)](https://coveralls.io/r/teambition/rrule-go)
+[![CI](https://github.com/teambition/rrule-go/actions/workflows/ci-cover.yml/badge.svg)](https://github.com/teambition/rrule-go/actions/workflows/ci.yml)
+[![Codecov](https://codecov.io/gh/teambition/rrule-go/master/main/graph/badge.svg)](https://codecov.io/gh/teambition/rrule-go)
+[![Go Reference](https://pkg.go.dev/badge/github.com/teambition/rrule-go.svg)](https://pkg.go.dev/github.com/teambition/rrule-go)
+[![CodeQL](https://github.com/teambition/rrule-go/actions/workflows/codeql.yml/badge.svg)](https://github.com/teambition/rrule-go/actions/workflows/codeql.yml)
 [![License](http://img.shields.io/badge/license-mit-blue.svg?style=flat-square)](https://raw.githubusercontent.com/teambition/rrule-go/master/LICENSE)
-[![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://godoc.org/github.com/teambition/rrule-go)
 
 The rrule module offers a complete implementation of the recurrence rules documented in the [iCalendar
 RFC](http://www.ietf.org/rfc/rfc2445.txt). It is a partial port of the rrule module from the excellent [python-dateutil](http://labix.org/python-dateutil/) library.

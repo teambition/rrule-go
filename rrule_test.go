@@ -200,6 +200,33 @@ func TestInvalidRRules(t *testing.T) {
 			rrule:   ROption{Freq: DAILY, Interval: -1},
 			wantErr: "interval must be greater than 0",
 		},
+		{
+			desc: "Secondly schedule with conflicting Bysecond",
+			rrule: ROption{Freq: SECONDLY,
+				Interval: 5,
+				Bysecond: []int{30},
+				Dtstart:  time.Date(2000, 03, 22, 12, 0, 31, 0, time.UTC),
+			},
+			wantErr: "rrule bysecond generates no recurrences",
+		},
+		{
+			desc: "Minutely schedule with conflicting Byminute",
+			rrule: ROption{Freq: MINUTELY,
+				Interval: 5,
+				Byminute: []int{30},
+				Dtstart:  time.Date(2000, 03, 22, 12, 31, 0, 0, time.UTC),
+			},
+			wantErr: "rrule byminute generates no recurrences",
+		},
+		{
+			desc: "Hourly schedule with conflicting Byhour",
+			rrule: ROption{Freq: HOURLY,
+				Interval: 3,
+				Byhour:   []int{11},
+				Dtstart:  time.Date(2000, 03, 22, 12, 0, 0, 0, time.UTC),
+			},
+			wantErr: "rrule byhour generates no recurrences",
+		},
 	}
 
 	for _, tc := range tests {

@@ -311,6 +311,49 @@ func validateBounds(arg ROption) error {
 	return nil
 }
 
+// constructByset returns the set of all valid BYXX values
+// for a given start position, interval, and base.
+//
+// If a `BYXX` sequence is passed to the constructor at the same level as
+// `FREQ` (e.g. `FREQ=HOURLY,BYHOUR={2,4,7},INTERVAL=3`), there are some
+// specifications which cannot be reached given some starting conditions.
+//
+// This occurs whenever the interval is not coprime with the base of a
+// given unit and the difference between the starting position and the
+// ending position is not coprime with the greatest common denominator
+// between the interval and the base. For example, with a FREQ of hourly
+// starting at 17:00 and an interval of 4, the only valid values for
+// BYHOUR would be {21, 1, 5, 9, 13, 17}, because 4 and 24 are not
+// coprime.
+//
+// In the event of an empty set, return an error, as this
+// results in an empty rrule.
+func constructByset(start int, interval int, byxx []int, base int) ([]int, error) {
+	validSet := make([]int, 0, base)
+	for _, x := range byxx {
+		// Get the GCD between the interval and the base
+		gcd := gcd(interval, base)
+
+		// Check if the interval is coprime with the base
+		intervalBaseCoprime := gcd == 1
+
+		// Check if the difference between the start and end positions is coprime with the GCD
+		_, rem := divmod(x-start, gcd)
+		diffGCDCoprime := rem == 0
+
+		if intervalBaseCoprime || diffGCDCoprime {
+			if !contains(validSet, x) {
+				validSet = append(validSet, x)
+			}
+		}
+	}
+
+	if len(validSet) == 0 {
+		return nil, errors.New("invalid rrule byxx generates an empty set")
+	}
+	return validSet, nil
+}
+
 type iterInfo struct {
 	rrule       *RRule
 	lastyear    int

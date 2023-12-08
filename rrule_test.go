@@ -3,6 +3,7 @@
 package rrule
 
 import (
+	"reflect"
 	"testing"
 	"time"
 )
@@ -30,7 +31,7 @@ func TestBadBySetPos(t *testing.T) {
 	_, e := NewRRule(ROption{Freq: MONTHLY, Count: 1, Bysetpos: []int{0},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
 	if e == nil {
-		t.Error("get nil, want error")
+		t.Error("got nil, want error")
 	}
 }
 
@@ -38,7 +39,7 @@ func TestBadBySetPosMany(t *testing.T) {
 	_, e := NewRRule(ROption{Freq: MONTHLY, Count: 1, Bysetpos: []int{-1, 0, 1},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
 	if e == nil {
-		t.Error("get nil, want error")
+		t.Error("got nil, want error")
 	}
 }
 
@@ -3950,6 +3951,99 @@ func TestRuleChangeDTStartTimezoneRespected(t *testing.T) {
 		if (h + m + s) != 0 {
 			t.Fatal("expected", "0", "got", h, m, s)
 		}
+	}
+}
+
+func TestConstructByset(t *testing.T) {
+	tests := []struct {
+		desc      string
+		rrule     ROption
+		wantByset []int
+		wantErr   bool
+	}{
+		{
+			desc: "Secondly schedule with valid Byxx subset",
+			rrule: ROption{Freq: SECONDLY,
+				Bysecond: []int{1, 2, 10, 20, 25, 50},
+				Interval: 10,
+				Dtstart:  time.Date(2000, 03, 22, 12, 0, 10, 0, time.UTC),
+			},
+			wantByset: []int{10, 20, 50},
+		},
+		{
+			desc: "Secondly schedule with empty Byxx subset",
+			rrule: ROption{Freq: SECONDLY,
+				Bysecond: []int{1, 2, 25},
+				Interval: 10,
+				Dtstart:  time.Date(2000, 03, 22, 12, 0, 10, 0, time.UTC),
+			},
+			wantErr: true,
+		},
+		{
+			desc: "Minutely schedule with valid Byxx subset",
+			rrule: ROption{Freq: MINUTELY,
+				Byminute: []int{1, 2, 10, 20, 25, 50},
+				Interval: 10,
+				Dtstart:  time.Date(2000, 03, 22, 12, 10, 0, 0, time.UTC),
+			},
+			wantByset: []int{10, 20, 50},
+		},
+		{
+			desc: "Minutely schedule with empty Byxx subset",
+			rrule: ROption{Freq: MINUTELY,
+				Bysecond: []int{1, 2, 25},
+				Interval: 10,
+				Dtstart:  time.Date(2000, 03, 22, 12, 10, 0, 0, time.UTC),
+			},
+			wantErr: true,
+		},
+		{
+			desc: "Hourly schedule with valid Byxx subset",
+			rrule: ROption{Freq: HOURLY,
+				Byhour:   []int{1, 3, 5, 9, 12, 17, 23},
+				Interval: 4,
+				Dtstart:  time.Date(2000, 03, 22, 17, 0, 0, 0, time.UTC),
+			},
+			wantByset: []int{1, 5, 9, 17},
+		},
+		{
+			desc: "Hourly schedule with empty Byxx subset",
+			rrule: ROption{Freq: HOURLY,
+				Byhour:   []int{3, 12, 23},
+				Interval: 4,
+				Dtstart:  time.Date(2000, 03, 22, 17, 0, 0, 0, time.UTC),
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			var start, base int
+			var byxx []int
+
+			switch tc.rrule.Freq {
+			case SECONDLY:
+				start = tc.rrule.Dtstart.Second()
+				base = 60
+				byxx = tc.rrule.Bysecond
+			case MINUTELY:
+				start = tc.rrule.Dtstart.Minute()
+				base = 60
+				byxx = tc.rrule.Byminute
+			case HOURLY:
+				start = tc.rrule.Dtstart.Hour()
+				base = 24
+				byxx = tc.rrule.Byhour
+			}
+
+			bySet, err := constructByset(start, tc.rrule.Interval, byxx, base)
+			if tc.wantErr && err == nil {
+				t.Error("got nil, want error")
+			} else if !reflect.DeepEqual(bySet, tc.wantByset) {
+				t.Errorf("got %v, want %v", bySet, tc.wantByset)
+			}
+		})
 	}
 }
 

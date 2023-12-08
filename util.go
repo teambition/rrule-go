@@ -57,6 +57,17 @@ func divmod(a, b int) (div, mod int) {
 	return int(math.Floor(float64(a) / float64(b))), pymod(a, b)
 }
 
+// gcd uses the Euclidean algorithm (https://en.wikipedia.org/wiki/Euclidean_algorithm)
+// to compute the Greatest Common Divisor between two integers, a and b.
+func gcd(a, b int) int {
+	for b != 0 {
+		temp := b
+		b = a % b
+		a = temp
+	}
+	return a
+}
+
 func contains(list []int, elem int) bool {
 	for _, t := range list {
 		if t == elem {

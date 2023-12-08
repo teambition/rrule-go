@@ -324,7 +324,10 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 		// default location should be taken from DTSTART property to correctly
 		// parse local times met in RDATE,EXDATE and other rules
 		defaultLoc = dt.Location()
-		set.DTStart(dt)
+		err = set.DTStart(dt)
+		if err != nil {
+			return nil, err
+		}
 		// We've processed the first one
 		ss = ss[1:]
 	}
@@ -347,7 +350,10 @@ func StrSliceToRRuleSetInLoc(ss []string, defaultLoc *time.Location) (*Set, erro
 				return nil, fmt.Errorf("NewRRule failed: %v", r)
 			}
 
-			set.RRule(r)
+			err = set.RRule(r)
+			if err != nil {
+				return nil, err
+			}
 		case "RDATE", "EXDATE":
 			ts, err := StrToDatesInLoc(rule, defaultLoc)
 			if err != nil {

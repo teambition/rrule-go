@@ -208,7 +208,7 @@ func TestInvalidRRules(t *testing.T) {
 				Bysecond: []int{30},
 				Dtstart:  time.Date(2000, 03, 22, 12, 0, 31, 0, time.UTC),
 			},
-			wantErr: "rrule bysecond generates no recurrences",
+			wantErr: "invalid rrule byxx generates an empty set",
 		},
 		{
 			desc: "Minutely schedule with conflicting Byminute",
@@ -217,7 +217,7 @@ func TestInvalidRRules(t *testing.T) {
 				Byminute: []int{30},
 				Dtstart:  time.Date(2000, 03, 22, 12, 31, 0, 0, time.UTC),
 			},
-			wantErr: "rrule byminute generates no recurrences",
+			wantErr: "invalid rrule byxx generates an empty set",
 		},
 		{
 			desc: "Hourly schedule with conflicting Byhour",
@@ -226,7 +226,7 @@ func TestInvalidRRules(t *testing.T) {
 				Byhour:   []int{11},
 				Dtstart:  time.Date(2000, 03, 22, 12, 0, 0, 0, time.UTC),
 			},
-			wantErr: "rrule byhour generates no recurrences",
+			wantErr: "invalid rrule byxx generates an empty set",
 		},
 	}
 
@@ -3742,7 +3742,11 @@ func TestDTStart(t *testing.T) {
 	}
 
 	dt = dt.AddDate(0, 0, 3)
-	r.DTStart(dt)
+	err := r.DTStart(dt)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
+
 	want = []time.Time{dt, dt.AddDate(1, 0, 0), dt.AddDate(2, 0, 0)}
 	value = r.All()
 	if !timesEqual(value, want) {
@@ -3779,7 +3783,10 @@ func TestDTStartWithMicroseconds(t *testing.T) {
 func TestUntil(t *testing.T) {
 	r1, _ := NewRRule(ROption{Freq: DAILY,
 		Dtstart: time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC)})
-	r1.Until(time.Date(1998, 9, 2, 0, 0, 0, 0, time.UTC))
+	err := r1.Until(time.Date(1998, 9, 2, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 
 	r2, _ := NewRRule(ROption{Freq: DAILY,
 		Dtstart: time.Date(1997, 9, 2, 0, 0, 0, 0, time.UTC),
@@ -3793,7 +3800,10 @@ func TestUntil(t *testing.T) {
 
 	r3, _ := NewRRule(ROption{Freq: MONTHLY,
 		Dtstart: time.Date(MAXYEAR-100, 1, 1, 0, 0, 0, 0, time.UTC)})
-	r3.Until(time.Date(MAXYEAR+100, 1, 1, 0, 0, 0, 0, time.UTC))
+	err = r3.Until(time.Date(MAXYEAR+100, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	v3 := r3.All()
 	if len(v3) != 101*12 {
 		t.Errorf("get %v, want %v", len(v3), 101*12)
@@ -3922,7 +3932,7 @@ func TestRuleChangeDTStartTimezoneRespected(t *testing.T) {
 	*/
 	loc, err := time.LoadLocation("CET")
 	if err != nil {
-		t.Fatal("expected", nil, "got", err)
+		t.Fatalf("got %v, wanted nil", err)
 	}
 
 	rule, err := NewRRule(
@@ -3934,9 +3944,12 @@ func TestRuleChangeDTStartTimezoneRespected(t *testing.T) {
 		},
 	)
 	if err != nil {
-		t.Fatal("expected", nil, "got", err)
+		t.Fatalf("got %v, wanted nil", err)
 	}
-	rule.DTStart(time.Date(2019, 3, 6, 0, 0, 0, 0, time.UTC))
+	err = rule.DTStart(time.Date(2019, 3, 6, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 
 	events := rule.All()
 	if len(events) != 10 {

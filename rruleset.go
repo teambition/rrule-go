@@ -41,12 +41,16 @@ func (set *Set) Recurrence() []string {
 
 // DTStart sets dtstart property for set.
 // It will be truncated to second precision.
-func (set *Set) DTStart(dtstart time.Time) {
+func (set *Set) DTStart(dtstart time.Time) error {
 	set.dtstart = dtstart.Truncate(time.Second)
 
 	if set.rrule != nil {
-		set.rrule.DTStart(set.dtstart)
+		err := set.rrule.DTStart(set.dtstart)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // GetDTStart gets DTSTART for set
@@ -56,13 +60,17 @@ func (set *Set) GetDTStart() time.Time {
 
 // RRule set the RRULE for set.
 // There is the only one RRULE in the set as https://tools.ietf.org/html/rfc5545#appendix-A.1
-func (set *Set) RRule(rrule *RRule) {
+func (set *Set) RRule(rrule *RRule) error {
 	if !rrule.OrigOptions.Dtstart.IsZero() {
 		set.dtstart = rrule.dtstart
 	} else if !set.dtstart.IsZero() {
-		rrule.DTStart(set.dtstart)
+		err := rrule.DTStart(set.dtstart)
+		if err != nil {
+			return err
+		}
 	}
 	set.rrule = rrule
+	return nil
 }
 
 // GetRRule returns the rrules in the set

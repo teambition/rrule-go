@@ -141,12 +141,11 @@ func NewRRule(arg ROption) (*RRule, error) {
 	if err := validateBounds(arg); err != nil {
 		return nil, err
 	}
-	r := buildRRule(arg)
-	return &r, nil
+	return buildRRule(arg)
 }
 
-func buildRRule(arg ROption) RRule {
-	r := RRule{}
+func buildRRule(arg ROption) (*RRule, error) {
+	r := &RRule{}
 	r.OrigOptions = arg
 	// FREQ default to YEARLY
 	r.freq = arg.Freq
@@ -221,6 +220,13 @@ func buildRRule(arg ROption) RRule {
 		}
 	} else {
 		r.byhour = arg.Byhour
+		if r.freq == HOURLY {
+			validByhour, err := constructByset(r.dtstart.Hour(), r.interval, r.byhour, 24)
+			if err != nil {
+				return nil, err
+			}
+			r.byhour = validByhour
+		}
 	}
 	if len(arg.Byminute) == 0 {
 		if r.freq < MINUTELY {
@@ -228,6 +234,13 @@ func buildRRule(arg ROption) RRule {
 		}
 	} else {
 		r.byminute = arg.Byminute
+		if r.freq == MINUTELY {
+			validByminute, err := constructByset(r.dtstart.Minute(), r.interval, r.byminute, 60)
+			if err != nil {
+				return nil, err
+			}
+			r.byminute = validByminute
+		}
 	}
 	if len(arg.Bysecond) == 0 {
 		if r.freq < SECONDLY {
@@ -235,6 +248,13 @@ func buildRRule(arg ROption) RRule {
 		}
 	} else {
 		r.bysecond = arg.Bysecond
+		if r.freq == SECONDLY {
+			validBysecond, err := constructByset(r.dtstart.Second(), r.interval, r.bysecond, 60)
+			if err != nil {
+				return nil, err
+			}
+			r.bysecond = validBysecond
+		}
 	}
 
 	// Reset the timeset value
@@ -253,7 +273,7 @@ func buildRRule(arg ROption) RRule {
 	}
 
 	r.Options = arg
-	return r
+	return r, nil
 }
 
 // validateBounds checks the RRule's options are within the boundaries defined
@@ -980,9 +1000,14 @@ func (r *RRule) After(dt time.Time, inc bool) time.Time {
 // DTStart set a new DTSTART for the rule and recalculates the timeset if needed.
 // It will be truncated to second precision.
 // Default to `time.Now().UTC().Truncate(time.Second)`.
-func (r *RRule) DTStart(dt time.Time) {
+func (r *RRule) DTStart(dt time.Time) error {
 	r.OrigOptions.Dtstart = dt.Truncate(time.Second)
-	*r = buildRRule(r.OrigOptions)
+	rrule, err := buildRRule(r.OrigOptions)
+	if err != nil {
+		return err
+	}
+	*r = *rrule
+	return nil
 }
 
 // GetDTStart gets DTSTART time for rrule
@@ -993,9 +1018,14 @@ func (r *RRule) GetDTStart() time.Time {
 // Until set a new UNTIL for the rule and recalculates the timeset if needed.
 // It will be truncated to second precision.
 // Default to `Dtstart.Add(time.Duration(1<<63 - 1))`, approximately 290 years.
-func (r *RRule) Until(ut time.Time) {
+func (r *RRule) Until(ut time.Time) error {
 	r.OrigOptions.Until = ut.Truncate(time.Second)
-	*r = buildRRule(r.OrigOptions)
+	rrule, err := buildRRule(r.OrigOptions)
+	if err != nil {
+		return err
+	}
+	*r = *rrule
+	return nil
 }
 
 // GetUntil gets UNTIL time for rrule

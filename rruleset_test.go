@@ -11,7 +11,10 @@ func TestSet(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 2, Byweekday: []Weekday{TU},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	value := set.All()
 	want := []time.Time{time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC),
 		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC)}
@@ -24,7 +27,10 @@ func TestSetOverlapping(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	v1 := set.All()
 	if len(v1) > 300 || len(v1) < 200 {
 		t.Errorf("No default Util time")
@@ -39,7 +45,10 @@ func TestSetString(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},
 		Dtstart: time.Date(1997, 9, 2, 8, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	set.ExDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC))
 	set.ExDate(time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC).In(moscow))
 	set.ExDate(time.Date(1997, 9, 18, 9, 0, 0, 0, time.UTC).In(newYork))
@@ -63,7 +72,10 @@ func TestSetDTStart(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	set.ExDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC))
 	set.ExDate(time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC))
 	set.ExDate(time.Date(1997, 9, 18, 9, 0, 0, 0, time.UTC))
@@ -71,7 +83,10 @@ func TestSetDTStart(t *testing.T) {
 	set.RDate(time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC))
 
 	nyLoc, _ := time.LoadLocation("America/New_York")
-	set.DTStart(time.Date(1997, 9, 3, 9, 0, 0, 0, nyLoc))
+	err = set.DTStart(time.Date(1997, 9, 3, 9, 0, 0, 0, nyLoc))
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 
 	want := `DTSTART;TZID=America/New_York:19970903T090000
 RRULE:FREQ=YEARLY;COUNT=1;BYDAY=TU
@@ -98,7 +113,10 @@ func TestSetRecurrence(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	value := set.Recurrence()
 	if len(value) != 2 {
 		t.Errorf("Wrong length for recurrence got=%v want=%v", len(value), 2)
@@ -113,7 +131,10 @@ func TestSetDate(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	set.RDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC))
 	set.RDate(time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC))
 	value := set.All()
@@ -129,7 +150,10 @@ func TestSetRDates(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 1, Byweekday: []Weekday{TU},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	set.SetRDates([]time.Time{
 		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
 		time.Date(1997, 9, 9, 9, 0, 0, 0, time.UTC),
@@ -149,7 +173,10 @@ func TestSetExDate(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 6, Byweekday: []Weekday{TU, TH},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	set.ExDate(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC))
 	set.ExDate(time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC))
 	set.ExDate(time.Date(1997, 9, 18, 9, 0, 0, 0, time.UTC))
@@ -166,7 +193,10 @@ func TestSetExDates(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: YEARLY, Count: 6, Byweekday: []Weekday{TU, TH},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	set.SetExDates([]time.Time{
 		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
 		time.Date(1997, 9, 11, 9, 0, 0, 0, time.UTC),
@@ -185,7 +215,10 @@ func TestSetExDateRevOrder(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: MONTHLY, Count: 5, Bymonthday: []int{10},
 		Dtstart: time.Date(2004, 1, 1, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	set.ExDate(time.Date(2004, 4, 10, 9, 0, 0, 0, time.UTC))
 	set.ExDate(time.Date(2004, 2, 10, 9, 0, 0, 0, time.UTC))
 	value := set.All()
@@ -221,7 +254,10 @@ func TestSetBefore(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: DAILY, Count: 7,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	want := time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)
 	value := set.Before(time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC), false)
 	if value != want {
@@ -233,7 +269,10 @@ func TestSetBeforeInc(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: DAILY, Count: 7,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	want := time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC)
 	value := set.Before(time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC), true)
 	if value != want {
@@ -245,7 +284,10 @@ func TestSetAfter(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: DAILY, Count: 7,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	want := time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC)
 	value := set.After(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC), false)
 	if value != want {
@@ -257,7 +299,10 @@ func TestSetAfterInc(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: DAILY, Count: 7,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	want := time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC)
 	value := set.After(time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC), true)
 	if value != want {
@@ -269,7 +314,10 @@ func TestSetBetween(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: DAILY, Count: 7,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	value := set.Between(time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC), time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC), false)
 	want := []time.Time{time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
 		time.Date(1997, 9, 5, 9, 0, 0, 0, time.UTC)}
@@ -282,7 +330,10 @@ func TestSetBetweenInc(t *testing.T) {
 	set := Set{}
 	r, _ := NewRRule(ROption{Freq: DAILY, Count: 7,
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 	value := set.Between(time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC), time.Date(1997, 9, 6, 9, 0, 0, 0, time.UTC), true)
 	want := []time.Time{time.Date(1997, 9, 3, 9, 0, 0, 0, time.UTC),
 		time.Date(1997, 9, 4, 9, 0, 0, 0, time.UTC),
@@ -305,7 +356,10 @@ func TestSetTrickyTimeZones(t *testing.T) {
 		Count:   4,
 		Dtstart: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC).In(moscow),
 	})
-	set.RRule(r)
+	err := set.RRule(r)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 
 	set.ExDate(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC).In(newYork))
 	set.ExDate(time.Date(2000, 1, 2, 0, 0, 0, 0, time.UTC).In(tehran))
@@ -324,7 +378,10 @@ func TestSetDtStart(t *testing.T) {
 	set, _ := StrSliceToRRuleSet(ogr)
 
 	ogoc := set.All()
-	set.DTStart(set.GetDTStart().AddDate(0, 0, 1))
+	err := set.DTStart(set.GetDTStart().AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 
 	noc := set.All()
 	if len(noc) != len(ogoc)-1 {
@@ -349,7 +406,7 @@ func TestRuleSetChangeDTStartTimezoneRespected(t *testing.T) {
 	*/
 	loc, err := time.LoadLocation("CET")
 	if err != nil {
-		t.Fatal("expected", nil, "got", err)
+		t.Fatalf("got %v, wanted nil", err)
 	}
 
 	ruleSet := &Set{}
@@ -365,10 +422,16 @@ func TestRuleSetChangeDTStartTimezoneRespected(t *testing.T) {
 		},
 	)
 	if err != nil {
-		t.Fatal("expected", nil, "got", err)
+		t.Fatalf("got %v, wanted nil", err)
 	}
-	ruleSet.RRule(rule)
-	ruleSet.DTStart(time.Date(2019, 3, 6, 0, 0, 0, 0, time.UTC))
+	err = ruleSet.RRule(rule)
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
+	err = ruleSet.DTStart(time.Date(2019, 3, 6, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("got %v, wanted nil", err)
+	}
 
 	events := ruleSet.All()
 	if len(events) != 10 {

@@ -666,12 +666,20 @@ func (iterator *rIterator) generate() {
 					continue
 				}
 				i := day.Int
-				dateYear, dateMonth, dateDay := iterator.ii.firstyday.AddDate(0, 0, i).Date()
+				date := iterator.ii.firstyday.AddDate(0, 0, i)
+				dateYear, dateMonth, dateDay := date.Date()
 				for _, timeTemp := range iterator.timeset {
 					tempHour, tempMinute, tempSecond := timeTemp.Clock()
-					res := time.Date(dateYear, dateMonth, dateDay,
-						tempHour, tempMinute, tempSecond,
-						timeTemp.Nanosecond(), timeTemp.Location())
+
+					var res time.Time
+					if r.freq < HOURLY {
+						res = time.Date(dateYear, dateMonth, dateDay,
+							tempHour, tempMinute, tempSecond,
+							timeTemp.Nanosecond(), timeTemp.Location())
+					} else {
+						res = date.Add(time.Duration(tempHour)*time.Hour + time.Duration(tempMinute)*time.Minute + time.Duration(tempSecond)*time.Second)
+					}
+
 					if !r.until.IsZero() && res.After(r.until) {
 						r.len = iterator.total
 						iterator.finished = true

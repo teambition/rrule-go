@@ -23,6 +23,10 @@ func timeToStr(time time.Time) string {
 	return time.UTC().Format(DateTimeFormat)
 }
 
+func localTimeToStr(time time.Time) string {
+	return time.Format(DateTimeFormat)
+}
+
 func strToTimeInLoc(str string, loc *time.Location) (time.Time, error) {
 	if len(str) == len(DateFormat) {
 		return time.ParseInLocation(DateFormat, str, loc)
@@ -144,7 +148,18 @@ func (option *ROption) RRuleString() string {
 		result = append(result, fmt.Sprintf("COUNT=%v", option.Count))
 	}
 	if !option.Until.IsZero() {
-		result = append(result, fmt.Sprintf("UNTIL=%v", timeToStr(option.Until)))
+		var timeString string
+		loc := option.Until.Location()
+		if loc == nil || loc == time.UTC {
+			timeString = fmt.Sprintf("UNTIL=%v", timeToStr(option.Until))
+		} else {
+			timeString = fmt.Sprintf("UNTIL=%s", localTimeToStr(option.Until))
+			if strings.HasSuffix(timeString, "Z") {
+				timeString = timeString[:len(timeString)-1]
+			}
+		}
+
+		result = append(result, timeString)
 	}
 	result = appendIntsOption(result, "BYSETPOS", option.Bysetpos)
 	result = appendIntsOption(result, "BYMONTH", option.Bymonth)
@@ -190,7 +205,17 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 	result := ROption{}
 	freqSet := false
 
+	// Keep track of if DTSTART and UNTIL are given and if they are in the same format
+	var dtstartGiven bool
+	var dtstartTimeDefinedAsUTC bool
+	var untilGiven bool
+	var untilTimeDefinedAsUTC bool
+
 	if dtstartStr != "" {
+		// Save dstart time format
+		dtstartGiven = true
+		dtstartTimeDefinedAsUTC = strings.HasSuffix(dtstartStr, "Z")
+
 		firstName, err := processRRuleName(dtstartStr)
 		if err != nil {
 			return nil, fmt.Errorf("expect DTSTART but: %s", err)
@@ -202,6 +227,9 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 		result.Dtstart, err = StrToDtStart(dtstartStr[len(firstName)+1:], loc)
 		if err != nil {
 			return nil, fmt.Errorf("StrToDtStart failed: %s", err)
+		}
+		if dtstartTimeDefinedAsUTC && result.Dtstart.Location() != time.UTC {
+			return nil, fmt.Errorf("DTSTART time format mismatch: TZID='%s' but time given in UTC", result.Dtstart.Location().String())
 		}
 	}
 
@@ -221,6 +249,8 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 			result.Freq, e = StrToFreq(value)
 			freqSet = true
 		case "DTSTART":
+			dtstartGiven = true
+			dtstartTimeDefinedAsUTC = strings.HasSuffix(value, "Z")
 			result.Dtstart, e = strToTimeInLoc(value, loc)
 		case "INTERVAL":
 			result.Interval, e = strconv.Atoi(value)
@@ -229,7 +259,14 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 		case "COUNT":
 			result.Count, e = strconv.Atoi(value)
 		case "UNTIL":
-			result.Until, e = strToTimeInLoc(value, loc)
+			untilGiven = true
+			untilTimeDefinedAsUTC = strings.HasSuffix(value, "Z")
+			location := loc
+			// If UNTIL time is LOCAL time, we need to parse it in the same location as DTSTART
+			if !untilTimeDefinedAsUTC && result.Dtstart.Location() != nil {
+				location = result.Dtstart.Location()
+			}
+			result.Until, e = strToTimeInLoc(value, location)
 		case "BYSETPOS":
 			result.Bysetpos, e = strToInts(value)
 		case "BYMONTH":
@@ -263,6 +300,13 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 		// have a meaningful default nor a way to confirm if we parsed
 		// a value from the options this returns.
 		return nil, errors.New("RRULE property FREQ is required")
+	}
+
+	// If dtstart isn't in the same format as until, return an error
+	if dtstartGiven && untilGiven {
+		if dtstartTimeDefinedAsUTC != untilTimeDefinedAsUTC {
+			return nil, errors.New("DTSTART and UNTIL time format mismatch")
+		}
 	}
 	return &result, nil
 }
@@ -441,21 +485,34 @@ func processRRuleName(line string) (string, error) {
 // StrToDtStart accepts string with format: "(TZID={timezone}:)?{time}" and parses it to a date
 // may be used to parse DTSTART rules, without the DTSTART; part.
 func StrToDtStart(str string, defaultLoc *time.Location) (time.Time, error) {
-	tmp := strings.Split(str, ":")
-	if len(tmp) > 2 || len(tmp) == 0 {
-		return time.Time{}, fmt.Errorf("bad format")
+	parts := strings.Split(str, ":")
+	if len(parts) < 0 || len(parts) > 2 {
+		return time.Time{}, errors.New("bad format")
 	}
+	var location = defaultLoc
+	var err error
 
-	if len(tmp) == 2 {
-		// tzid
-		loc, err := parseTZID(tmp[0])
+	// If we have a time zone, parse it
+	if len(parts) == 2 {
+		location, err = parseTZID(parts[0])
 		if err != nil {
 			return time.Time{}, err
 		}
-		return strToTimeInLoc(tmp[1], loc)
+		parts = parts[1:]
 	}
-	// no tzid, len == 1
-	return strToTimeInLoc(tmp[0], defaultLoc)
+
+	// Parse time
+	dtstartTime, err := strToTimeInLoc(parts[0], location)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	// Ensure that we don't mismatch time zones
+	if strings.HasSuffix(parts[0], "Z") && location != time.UTC {
+		return time.Time{}, errors.New("DTSTART time format in UTC but location is specified")
+	}
+
+	return dtstartTime, nil
 }
 
 func parseTZID(s string) (*time.Location, error) {

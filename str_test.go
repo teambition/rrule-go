@@ -3,6 +3,7 @@
 package rrule
 
 import (
+	"reflect"
 	"testing"
 	"time"
 )
@@ -40,12 +41,18 @@ func TestRFCSetToString(t *testing.T) {
 
 func TestCompatibility(t *testing.T) {
 	str := "FREQ=WEEKLY;DTSTART=20120201T093000Z;INTERVAL=5;WKST=TU;COUNT=2;UNTIL=20130130T230000Z;BYSETPOS=2;BYMONTH=3;BYYEARDAY=95;BYWEEKNO=1;BYDAY=MO,+2FR;BYHOUR=9;BYMINUTE=30;BYSECOND=0;BYEASTER=-1"
-	r, _ := StrToRRule(str)
+	r, err := StrToRRule(str)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 	want := "DTSTART:20120201T093000Z\nRRULE:FREQ=WEEKLY;INTERVAL=5;WKST=TU;COUNT=2;UNTIL=20130130T230000Z;BYSETPOS=2;BYMONTH=3;BYYEARDAY=95;BYWEEKNO=1;BYDAY=MO,+2FR;BYHOUR=9;BYMINUTE=30;BYSECOND=0;BYEASTER=-1"
 	if s := r.String(); s != want {
 		t.Errorf("StrToRRule(%q).String() = %q, want %q", str, s, want)
 	}
-	r, _ = StrToRRule(want)
+	r, err = StrToRRule(want)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 	if s := r.String(); s != want {
 		t.Errorf("StrToRRule(%q).String() = %q, want %q", want, want, want)
 	}
@@ -429,5 +436,53 @@ func TestStrSetParseErrors(t *testing.T) {
 		if _, err := StrSliceToRRuleSet(ss); err == nil {
 			t.Error("Expected parse error for rules: ", ss)
 		}
+	}
+}
+
+func TestRRULEStringKeepsLocalTime(t *testing.T) {
+	localTimeRRULE := "DTSTART;TZID=Australia/Sydney:19980101T090000\nRRULE:FREQ=WEEKLY;UNTIL=20201230T220000"
+	r, err := StrToRRule(localTimeRRULE)
+	if err != nil {
+		t.Errorf("Error parsing rrule: %v", err)
+	}
+	localTimeRRULE2 := r.String()
+	if localTimeRRULE != localTimeRRULE2 {
+		t.Errorf("Expected:\n%v\ngot\n%v\n", localTimeRRULE, localTimeRRULE2)
+	}
+}
+
+func TestLocalTimeIsParsedCorrectly(t *testing.T) {
+	sydney, _ := time.LoadLocation("Australia/Sydney")
+	localTimeRRULE := "DTSTART;TZID=Australia/Sydney:19980101T090000\nRRULE:FREQ=WEEKLY;UNTIL=20201230T220000"
+	r, err := StrToRRule(localTimeRRULE)
+	if err != nil {
+		t.Errorf("Error parsing rrule: %v", err)
+	}
+	until := r.GetUntil()
+	if !reflect.DeepEqual(sydney, until.Location()) {
+		t.Errorf("Expected:\n%v\ngot\n%v\n", sydney.String(), until.Location().String())
+	}
+}
+
+func Test_DTStartInUTC_UNTILInLocalTime(t *testing.T) {
+	mismatchedTimeFormats := "DTSTART;19980101T090000Z\nRRULE:FREQ=WEEKLY;UNTIL=20201230T220000"
+	_, err := StrToRRule(mismatchedTimeFormats)
+	if err == nil {
+		t.Errorf("Expected error due to mismatched time formats")
+	}
+}
+
+func Test_DTStartInLocalTime_UNTILInUTC(t *testing.T) {
+	mismatchedTimeFormats := "DTSTART;19980101T090000\nRRULE:FREQ=WEEKLY;UNTIL=20201230T220000Z"
+	_, err := StrToRRule(mismatchedTimeFormats)
+	if err == nil {
+		t.Errorf("Expected error due to mismatched time formats")
+	}
+}
+func Test_TZGiven_DTStartInUTC(t *testing.T) {
+	mismatchedTimeFormats := "DTSTART;TZID=Australia/Sydney:19980101T090000Z\nRRULE:FREQ=WEEKLY;UNTIL=20201230T220000Z"
+	_, err := StrToRRule(mismatchedTimeFormats)
+	if err == nil {
+		t.Errorf("Expected error due to both TZID and UTC DATETIME given")
 	}
 }

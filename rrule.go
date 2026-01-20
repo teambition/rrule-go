@@ -249,7 +249,6 @@ func buildRRule(arg ROption) RRule {
 				}
 			}
 		}
-		sort.Sort(timeSlice(r.timeset))
 	}
 
 	r.Options = arg

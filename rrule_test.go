@@ -26,6 +26,41 @@ func TestNoDtstart(t *testing.T) {
 	}
 }
 
+func TestRepeatedBySecond(t *testing.T) {
+	start := time.Date(2008, 1, 1, 9, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		name     string
+		freq     Frequency
+		bysetpos []int
+		want     []time.Duration
+	}{
+		{"daily", DAILY, nil, []time.Duration{0, 30 * time.Second, 24 * time.Hour}},
+		{"hourly", HOURLY, nil, []time.Duration{0, 30 * time.Second, time.Hour}},
+		{"minutely", MINUTELY, nil, []time.Duration{0, 30 * time.Second, time.Minute}},
+		{"secondly", SECONDLY, nil, []time.Duration{0, 30 * time.Second, time.Minute}},
+		{"setpos", MINUTELY, []int{2}, []time.Duration{30 * time.Second, 90 * time.Second, 150 * time.Second}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			seconds := []int{0, 30, 0}
+			r, err := NewRRule(ROption{Freq: test.freq, Count: 3, Dtstart: start,
+				Bysecond: seconds, Bysetpos: test.bysetpos})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var want []time.Time
+			for _, offset := range test.want {
+				want = append(want, start.Add(offset))
+			}
+			if value := r.All(); !timesEqual(value, want) {
+				t.Errorf("get %v, want %v", value, want)
+			}
+			if seconds[0] != 0 || seconds[1] != 30 || seconds[2] != 0 {
+				t.Errorf("input seconds changed: %v", seconds)
+			}
+		})
+	}
+}
+
 func TestBadBySetPos(t *testing.T) {
 	_, e := NewRRule(ROption{Freq: MONTHLY, Count: 1, Bysetpos: []int{0},
 		Dtstart: time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})

@@ -234,7 +234,11 @@ func buildRRule(arg ROption) RRule {
 			r.bysecond = []int{r.dtstart.Second()}
 		}
 	} else {
-		r.bysecond = arg.Bysecond
+		for _, second := range arg.Bysecond {
+			if !contains(r.bysecond, second) {
+				r.bysecond = append(r.bysecond, second)
+			}
+		}
 	}
 
 	// Reset the timeset value

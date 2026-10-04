@@ -31,6 +31,30 @@ func TestSetOverlapping(t *testing.T) {
 	}
 }
 
+func TestSetRepeatedBySecondCount(t *testing.T) {
+	start := time.Date(2008, 1, 1, 9, 0, 0, 0, time.UTC)
+	want := []time.Time{
+		start, start.Add(30 * time.Second),
+		start.Add(time.Minute), start.Add(90 * time.Second),
+		start.Add(2 * time.Minute), start.Add(150 * time.Second),
+		start.Add(3 * time.Minute), start.Add(210 * time.Second),
+		start.Add(4 * time.Minute), start.Add(270 * time.Second),
+		start.Add(5 * time.Minute), start.Add(330 * time.Second),
+	}
+	for _, seconds := range []string{"0,30", "0,30,0"} {
+		t.Run(seconds, func(t *testing.T) {
+			set, err := StrToRRuleSet("DTSTART:20080101T090000Z\nRRULE:FREQ=MINUTELY;COUNT=12;BYSECOND=" + seconds)
+			if err != nil {
+				t.Fatal(err)
+			}
+			value := set.Between(start, start.AddDate(1, 0, 0), true)
+			if !timesEqual(value, want) {
+				t.Errorf("get %v, want %v", value, want)
+			}
+		})
+	}
+}
+
 func TestSetString(t *testing.T) {
 	moscow, _ := time.LoadLocation("Europe/Moscow")
 	newYork, _ := time.LoadLocation("America/New_York")

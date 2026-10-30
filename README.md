@@ -1,5 +1,49 @@
 # rrule-go
 
+> **Separately maintained fork available.** For additional fixes and releases, see [kentonium3/rrule-go](https://github.com/kentonium3/rrule-go).
+>
+> Starting with v1.9.0, the maintained fork uses the module path `github.com/kentonium3/rrule-go`. Existing releases of this original module remain available.
+
+### Migrating to the maintained fork
+
+Before removing a protective old-path replacement, inspect module requirements and package imports for remaining old-path consumers. Removal can silently restore original upstream code and lose the fork's panic/hang fixes even when no rrule types cross interfaces. Coordinate those consumers' migration first, or remain on the existing pinned v1.8.3 replacement arrangement. Passing application tests alone does not establish preservation of those fixes.
+
+Change imports in your Go source from:
+
+```go
+"github.com/teambition/rrule-go"
+```
+
+to:
+
+```go
+"github.com/kentonium3/rrule-go"
+```
+
+If your application's `go.mod` currently replaces `github.com/teambition/rrule-go` with the fork, remove that replacement:
+
+```bash
+go mod edit -dropreplace=github.com/teambition/rrule-go
+```
+
+For a replacement that explicitly names an old version on the left-hand side, remove that exact version-specific directive instead. For example, if its left side is `github.com/teambition/rrule-go v1.8.2`, use:
+
+```bash
+go mod edit -dropreplace=github.com/teambition/rrule-go@v1.8.2
+```
+
+Substitute the actual left-side version from your application's directive. Then add the maintained module and tidy dependencies:
+
+```bash
+go get github.com/kentonium3/rrule-go@v1.9.0
+go mod tidy
+go test ./...
+```
+
+Review the fork's [release notes](https://github.com/kentonium3/rrule-go/releases/tag/v1.9.0) for behavior changes and migration requirements. In v1.9.0, external positional `rrule.ROption` literals need to be converted to keyed literals.
+
+If another dependency still imports the original path, it may remain in your module graph. Coordinate that dependency migration before removing a replacement that supplied the fork fixes, or remain on the existing arrangement. Values from packages under the old and new import paths have different Go type identities; changing only your own imports does not migrate a dependency's public API.
+
 Go library for working with recurrence rules for calendar dates.
 
 [![CI](https://github.com/teambition/rrule-go/actions/workflows/ci.yml/badge.svg)](https://github.com/teambition/rrule-go/actions/workflows/ci.yml)

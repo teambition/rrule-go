@@ -482,7 +482,9 @@ func (info *iterInfo) rebuild(year int, month time.Month) {
 		info.eastermask = make([]int, info.yearlen+7)
 		eyday := easter(year).YearDay() - 1
 		for _, offset := range info.rrule.byeaster {
-			info.eastermask[eyday+offset] = 1
+			if i := eyday + offset; 0 <= i && i < len(info.eastermask) {
+				info.eastermask[i] = 1
+			}
 		}
 	}
 	info.lastyear = year

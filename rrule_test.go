@@ -609,6 +609,20 @@ func TestYearlyByEasterNeg(t *testing.T) {
 	}
 }
 
+func TestYearlyByEasterOutsideYear(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: YEARLY,
+		Count:    3,
+		Byeaster: []int{0, 400, -400},
+		Dtstart:  time.Date(1997, 9, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 4, 12, 9, 0, 0, 0, time.UTC),
+		time.Date(1999, 4, 4, 9, 0, 0, 0, time.UTC),
+		time.Date(2000, 4, 23, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
 func TestYearlyByWeekNoAndWeekDay53(t *testing.T) {
 	r, _ := NewRRule(ROption{Freq: YEARLY,
 		Count:     3,

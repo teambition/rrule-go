@@ -224,6 +224,11 @@ func StrToROptionInLocation(rfcString string, loc *time.Location) (*ROption, err
 			result.Dtstart, e = strToTimeInLoc(value, loc)
 		case "INTERVAL":
 			result.Interval, e = strconv.Atoi(value)
+			// Per RFC 5545, INTERVAL is a positive integer. A zero Interval
+			// in ROption means the default of 1, so reject it here.
+			if e == nil && result.Interval < 1 {
+				e = errors.New("interval must be greater than 0")
+			}
 		case "WKST":
 			result.Wkst, e = strToWeekday(value)
 		case "COUNT":

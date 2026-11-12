@@ -63,6 +63,7 @@ func TestInvalidString(t *testing.T) {
 		"FREQ=WEEKLY;BYDAY=M",
 		"FREQ=WEEKLY;BYDAY=MQ",
 		"FREQ=WEEKLY;BYDAY=+MO",
+		"FREQ=WEEKLY;INTERVAL=0",
 		"BYDAY=MO",
 	}
 	for _, item := range cases {

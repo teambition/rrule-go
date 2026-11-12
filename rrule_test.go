@@ -869,6 +869,19 @@ func TestMonthlyByNWeekDayLarge(t *testing.T) {
 	}
 }
 
+func TestMonthlyByNWeekDayOutsideMonth(t *testing.T) {
+	r, _ := NewRRule(ROption{Freq: MONTHLY,
+		Count:     2,
+		Byweekday: []Weekday{MO.Nth(1), MO.Nth(8), MO.Nth(-8)},
+		Dtstart:   time.Date(1997, 12, 2, 9, 0, 0, 0, time.UTC)})
+	want := []time.Time{time.Date(1998, 1, 5, 9, 0, 0, 0, time.UTC),
+		time.Date(1998, 2, 2, 9, 0, 0, 0, time.UTC)}
+	value := r.All()
+	if !timesEqual(value, want) {
+		t.Errorf("get %v, want %v", value, want)
+	}
+}
+
 func TestMonthlyByMonthAndWeekDay(t *testing.T) {
 	r, _ := NewRRule(ROption{Freq: MONTHLY,
 		Count:     3,

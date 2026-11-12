@@ -466,9 +466,15 @@ func (info *iterInfo) rebuild(year int, month time.Month) {
 					var i int
 					if n < 0 {
 						i = last + (n+1)*7
+						if i < first {
+							continue
+						}
 						i -= pymod(info.wdaymask[i]-wday, 7)
 					} else {
 						i = first + (n-1)*7
+						if i > last {
+							continue
+						}
 						i += pymod(7-info.wdaymask[i]+wday, 7)
 					}
 					if first <= i && i <= last {

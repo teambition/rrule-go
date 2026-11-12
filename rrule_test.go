@@ -3735,6 +3735,19 @@ func TestDTStartIsDate(t *testing.T) {
 	}
 }
 
+func TestDTStartInYearZero(t *testing.T) {
+	for _, freq := range []Frequency{YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY} {
+		r, _ := NewRRule(ROption{Freq: freq,
+			Count:   1,
+			Dtstart: time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)})
+		want := []time.Time{time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)}
+		value := r.All()
+		if !timesEqual(value, want) {
+			t.Errorf("%v: get %v, want %v", freq, value, want)
+		}
+	}
+}
+
 func TestDTStartWithMicroseconds(t *testing.T) {
 	r, _ := NewRRule(ROption{Freq: DAILY,
 		Count:   3,

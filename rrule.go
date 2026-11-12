@@ -331,7 +331,8 @@ type iterInfo struct {
 
 func (info *iterInfo) rebuild(year int, month time.Month) {
 	// Every mask is 7 days longer to handle cross-year weekly periods.
-	if year != info.lastyear {
+	// A zero yearlen means nothing is built yet, as lastyear can't tell year 0 apart.
+	if year != info.lastyear || info.yearlen == 0 {
 		info.yearlen = 365 + isLeap(year)
 		info.nextyearlen = 365 + isLeap(year+1)
 		info.firstyday = time.Date(
